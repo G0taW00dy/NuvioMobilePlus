@@ -45,8 +45,9 @@ object StreamsRepository {
         season: Int? = null,
         episode: Int? = null,
         manualSelection: Boolean = false,
+        isDownloadMode: Boolean = false,
     ): String =
-        "$type::$videoId::$season::$episode::$manualSelection"
+        "$type::$videoId::$season::$episode::$manualSelection::$isDownloadMode"
 
     fun load(type: String, videoId: String, parentMetaId: String? = null, season: Int? = null, episode: Int? = null, manualSelection: Boolean = false, isDownloadMode: Boolean = false) {
         PluginRepository.setLocalPluginSearchPaused(false)
@@ -89,6 +90,7 @@ object StreamsRepository {
             season = season,
             episode = episode,
             manualSelection = manualSelection,
+            isDownloadMode = isDownloadMode,
         )
         val requestKey = "$requestToken::pluginsGrouped=${pluginUiState.groupStreamsByRepository}"
         val currentState = _uiState.value
@@ -131,6 +133,7 @@ object StreamsRepository {
         // Enable direct auto-play flow if normal auto-play is enabled,
         // OR if we have a persisted binge group in MANUAL mode
         val bingeGroupDirectFlow = !manualSelection &&
+            !isDownloadMode &&
             persistedBingeGroup != null &&
             autoPlayMode == StreamAutoPlayMode.MANUAL
         val isDirectAutoPlayFlow = isAutoPlayEnabled || bingeGroupDirectFlow
@@ -300,8 +303,8 @@ object StreamsRepository {
             fun updateAutoPlayAfterStreamsChanged() {
                 if (!isDirectAutoPlayFlow || autoSelectTriggered) return
 
-                // Try binge group + filename first (most precise), then infoHash
-                if (persistedBingeGroup != null && !timeoutElapsed) {
+                // Try binge group + filename first (most precise), then infoHash (playback only)
+                if (!isDownloadMode && persistedBingeGroup != null && !timeoutElapsed) {
                     val allStreams = _uiState.value.groups.flatMap { it.streams }
                     // Filename match
                     if (persistedFilename != null) {

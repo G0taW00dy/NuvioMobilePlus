@@ -3,6 +3,7 @@ package com.nuvio.app.features.debrid
 import com.nuvio.app.features.streams.AddonStreamGroup
 import com.nuvio.app.features.streams.StreamDebridCacheState
 import com.nuvio.app.features.streams.StreamItem
+import com.nuvio.app.features.streams.estimatedSizeBytes
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 
@@ -457,9 +458,7 @@ internal object DebridStreamMetadata {
     }
 
     private fun streamSize(stream: StreamItem): Long? =
-        stream.clientResolve?.stream?.raw?.size
-            ?: stream.behaviorHints.videoSize
-            ?: stream.debridCacheStatus?.cachedSize
+        stream.estimatedSizeBytes()
 
     private fun streamSearchText(stream: StreamItem): String {
         val parsed = stream.clientResolve?.stream?.raw?.parsed

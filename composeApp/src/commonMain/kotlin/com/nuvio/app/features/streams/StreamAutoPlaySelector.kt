@@ -141,7 +141,11 @@ object StreamAutoPlaySelector {
         if (mode == StreamAutoPlayMode.MANUAL) {
             return StreamAutoPlayEvaluation()
         }
-        val preferredStream = if (preferBingeGroupInSelection && targetBingeGroup.isNotEmpty()) {
+        val maxBytes = if (isDownloadMode && downloadMaxSizeGb > 0) {
+            downloadMaxSizeGb.toLong() * 1024L * 1024L * 1024L
+        } else null
+
+        val preferredStream = if (!isDownloadMode && preferBingeGroupInSelection && targetBingeGroup.isNotEmpty()) {
             candidateStreams.firstOrNull { stream ->
                 stream.behaviorHints.bingeGroup == targetBingeGroup &&
                     stream.isAutoPlayable(debridEnabled, activeResolverProviderId)
@@ -179,8 +183,10 @@ object StreamAutoPlaySelector {
                     val searchableText = buildString {
                         append(stream.addonName).append(' ')
                         append(stream.name.orEmpty()).append(' ')
+                        append(stream.title.orEmpty()).append(' ')
                         append(stream.streamLabel).append(' ')
                         append(stream.description.orEmpty()).append(' ')
+                        append(stream.behaviorHints.filename.orEmpty()).append(' ')
                         append(url)
                     }
 
@@ -196,9 +202,23 @@ object StreamAutoPlaySelector {
         }
         if (matchingStreams.isEmpty() && preferredStream == null) return StreamAutoPlayEvaluation()
 
+        val prioritizedMatchingStreams = if (isDownloadMode && maxBytes != null) {
+            val confirmedUnderLimit = matchingStreams.filter { stream ->
+                val size = stream.estimatedSizeBytes()
+                size != null && size <= maxBytes
+            }
+            if (confirmedUnderLimit.isNotEmpty()) {
+                confirmedUnderLimit
+            } else {
+                matchingStreams
+            }
+        } else {
+            matchingStreams
+        }
+
         val readyStreams = buildList {
             preferredStream?.let(::add)
-            matchingStreams
+            prioritizedMatchingStreams
                 .filter { it.isAutoPlayable(debridEnabled, activeResolverProviderId) }
                 .filterNot { it == preferredStream }
                 .forEach(::add)

@@ -337,7 +337,9 @@ data class StreamsUiState(
         get() = groups.any { it.streams.isNotEmpty() }
 }
 
-private val STREAM_SIZE_REGEX = Regex("""(?i)\b(\d+(?:[.,]\d+)?)\s*(GB|GiB|MB|MiB|TB|TiB)\b""")
+private val STREAM_SIZE_REGEX = Regex(
+    """(?i)(?:^|[^0-9a-zA-Z.]|\b)(\d+(?:[.,]\d+)?)\s*(TB|TiB|T|To|GB|GiB|G|Go|MB|MiB|M|Mo)(?=[^0-9a-zA-Z]|$)"""
+)
 
 fun StreamItem.estimatedSizeBytes(): Long? {
     val direct = clientResolve?.stream?.raw?.size?.takeIf { it > 0L }
@@ -347,20 +349,29 @@ fun StreamItem.estimatedSizeBytes(): Long? {
 
     fun parseFrom(text: String?): Long? {
         if (text.isNullOrBlank()) return null
-        val match = STREAM_SIZE_REGEX.find(text) ?: return null
-        val amount = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
-        val unit = match.groupValues[2].uppercase()
-        val multiplier = when (unit) {
-            "TB", "TIB" -> 1024L * 1024L * 1024L * 1024L
-            "GB", "GIB" -> 1024L * 1024L * 1024L
-            "MB", "MIB" -> 1024L * 1024L
-            else -> return null
+        val matches = STREAM_SIZE_REGEX.findAll(text).toList()
+        if (matches.isEmpty()) return null
+        val parsedSizes = matches.mapNotNull { match ->
+            val amount = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return@mapNotNull null
+            val unit = match.groupValues[2].uppercase()
+            val multiplier = when (unit) {
+                "TB", "TIB", "T", "TO" -> 1024L * 1024L * 1024L * 1024L
+                "GB", "GIB", "G", "GO" -> 1024L * 1024L * 1024L
+                "MB", "MIB", "M", "MO" -> 1024L * 1024L
+                else -> return@mapNotNull null
+            }
+            (amount * multiplier).toLong()
         }
-        return (amount * multiplier).toLong()
+        return parsedSizes.maxOrNull()
     }
 
     return parseFrom(description)
         ?: parseFrom(title)
         ?: parseFrom(name)
+        ?: parseFrom(behaviorHints.filename)
+        ?: parseFrom(clientResolve?.filename)
+        ?: parseFrom(clientResolve?.torrentName)
+        ?: parseFrom(clientResolve?.stream?.raw?.filename)
+        ?: parseFrom(clientResolve?.stream?.raw?.torrentName)
+        ?: parseFrom(debridCacheStatus?.cachedName)
 }
-

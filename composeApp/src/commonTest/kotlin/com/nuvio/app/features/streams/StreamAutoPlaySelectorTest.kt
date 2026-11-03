@@ -361,11 +361,109 @@ class StreamAutoPlaySelectorTest {
         assertNull(selected)
     }
 
+
+    @Test
+    fun `download mode with regex 1080p selects highest quality under max download size`() {
+        val remux28g = stream(
+            addonName = "Torrentio",
+            url = "https://example.com/remux.mkv",
+            name = "[RD+] Torrentio\n1080p",
+            title = "Movie.2024.1080p.BluRay.REMUX.AVC.DTS-HD.MA.5.1-GROUP\n👤 150 💾 28.45 GB ⚙️ Torrentio",
+            description = "Movie.2024.1080p.BluRay.REMUX.AVC.DTS-HD.MA.5.1-GROUP\n👤 150 💾 28.45 GB ⚙️ Torrentio",
+        )
+        val bluray12g = stream(
+            addonName = "Torrentio",
+            url = "https://example.com/bluray.mkv",
+            name = "[RD+] Torrentio\n1080p",
+            title = "Movie.2024.1080p.BluRay.x264-GROUP\n👤 80 💾 12.1 GB ⚙️ Torrentio",
+            description = "Movie.2024.1080p.BluRay.x264-GROUP\n👤 80 💾 12.1 GB ⚙️ Torrentio",
+        )
+        val webdl4g = stream(
+            addonName = "Torrentio",
+            url = "https://example.com/webdl.mkv",
+            name = "[RD+] Torrentio\n1080p",
+            title = "Movie.2024.1080p.WEB-DL.DDP5.1.Atmos.H.264-GROUP\n👤 95 💾 4.5 GB ⚙️ Torrentio",
+            description = "Movie.2024.1080p.WEB-DL.DDP5.1.Atmos.H.264-GROUP\n👤 95 💾 4.5 GB ⚙️ Torrentio",
+        )
+        val webrip2g = stream(
+            addonName = "Torrentio",
+            url = "https://example.com/webrip.mkv",
+            name = "[RD+] Torrentio\n1080p",
+            title = "Movie.2024.1080p.WEBRip.x265-GROUP\n👤 40 💾 2.1 GB ⚙️ Torrentio",
+            description = "Movie.2024.1080p.WEBRip.x265-GROUP\n👤 40 💾 2.1 GB ⚙️ Torrentio",
+        )
+        val hdtv720p = stream(
+            addonName = "Torrentio",
+            url = "https://example.com/720p.mkv",
+            name = "[RD+] Torrentio\n720p",
+            title = "Movie.2024.720p.HDTV.x264-GROUP\n👤 10 💾 1.2 GB ⚙️ Torrentio",
+            description = "Movie.2024.720p.HDTV.x264-GROUP\n👤 10 💾 1.2 GB ⚙️ Torrentio",
+        )
+
+        // When streaming/playing without download mode: picks first 1080p match (remux 28 GB)
+        val playSelected = StreamAutoPlaySelector.selectAutoPlayStream(
+            streams = listOf(remux28g, bluray12g, webdl4g, webrip2g, hdtv720p),
+            mode = StreamAutoPlayMode.REGEX_MATCH,
+            regexPattern = "1080p",
+            source = StreamAutoPlaySource.ALL_SOURCES,
+            installedAddonNames = setOf("Torrentio"),
+            selectedAddons = emptySet(),
+            selectedPlugins = emptySet(),
+            isDownloadMode = false,
+            downloadMaxSizeGb = 5,
+        )
+        assertEquals(remux28g, playSelected)
+
+        // When downloading with max 5 GB limit: strictly filters out 28.45 GB and 12.1 GB, selects 4.5 GB
+        val downloadSelected = StreamAutoPlaySelector.selectAutoPlayStream(
+            streams = listOf(remux28g, bluray12g, webdl4g, webrip2g, hdtv720p),
+            mode = StreamAutoPlayMode.REGEX_MATCH,
+            regexPattern = "1080p",
+            source = StreamAutoPlaySource.ALL_SOURCES,
+            installedAddonNames = setOf("Torrentio"),
+            selectedAddons = emptySet(),
+            selectedPlugins = emptySet(),
+            isDownloadMode = true,
+            downloadMaxSizeGb = 5,
+        )
+        assertEquals(webdl4g, downloadSelected)
+    }
+
+    @Test
+    fun `download mode respects size parsed from filename with underscores or units like Go`() {
+        val hugeFilename = stream(
+            addonName = "Torrentio",
+            url = "https://example.com/huge.mkv",
+            name = "Movie 1080p",
+            filename = "Movie_2024_1080p_BluRay_22GB.mkv",
+        )
+        val validFilename = stream(
+            addonName = "Torrentio",
+            url = "https://example.com/valid.mkv",
+            name = "Movie 1080p",
+            filename = "Movie_2024_1080p_WEB-DL_4.2Go.mkv",
+        )
+
+        val selected = StreamAutoPlaySelector.selectAutoPlayStream(
+            streams = listOf(hugeFilename, validFilename),
+            mode = StreamAutoPlayMode.REGEX_MATCH,
+            regexPattern = "1080p",
+            source = StreamAutoPlaySource.ALL_SOURCES,
+            installedAddonNames = setOf("Torrentio"),
+            selectedAddons = emptySet(),
+            selectedPlugins = emptySet(),
+            isDownloadMode = true,
+            downloadMaxSizeGb = 5,
+        )
+        assertEquals(validFilename, selected)
+    }
+
     private fun stream(
         addonName: String,
         url: String? = null,
         externalUrl: String? = null,
         name: String? = null,
+        title: String? = null,
         bingeGroup: String? = null,
         directDebrid: Boolean = false,
         directDebridService: String = "torbox",
@@ -373,9 +471,10 @@ class StreamAutoPlaySelectorTest {
         cacheState: StreamDebridCacheState? = null,
         description: String? = null,
         videoSize: Long? = null,
+        filename: String? = null,
     ): StreamItem = StreamItem(
         name = name,
-        title = name,
+        title = title ?: name,
         description = description,
         url = url,
         externalUrl = externalUrl,
@@ -402,6 +501,7 @@ class StreamAutoPlaySelectorTest {
         behaviorHints = StreamBehaviorHints(
             bingeGroup = bingeGroup,
             videoSize = videoSize,
+            filename = filename,
         ),
     )
 }

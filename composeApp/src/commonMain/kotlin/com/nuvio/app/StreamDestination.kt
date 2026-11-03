@@ -301,7 +301,7 @@ internal fun StreamDestination(
         if (!hasResolvedVideoId) return@LaunchedEffect
         if (reuseHandled) return@LaunchedEffect
         reuseHandled = true
-        if (launch.manualSelection) return@LaunchedEffect
+        if (launch.manualSelection || launch.isDownloadMode) return@LaunchedEffect
         if (!playerSettings.streamReuseLastLinkEnabled) return@LaunchedEffect
         val cacheKey = StreamLinkCacheRepository.contentKey(
             type = launch.type,
@@ -414,6 +414,7 @@ internal fun StreamDestination(
         season = launch.seasonNumber,
         episode = launch.episodeNumber,
         manualSelection = launch.manualSelection,
+        isDownloadMode = launch.isDownloadMode,
     )
     val showLoadingScreen = autoPlayNavigationStarted || resolvingDebridStream || resolvingYouTubeStream || preparingServerStream || streamsUiState.shouldShowAutoPlayLoading(
         expectedRequestToken = expectedStreamsRequestToken,
