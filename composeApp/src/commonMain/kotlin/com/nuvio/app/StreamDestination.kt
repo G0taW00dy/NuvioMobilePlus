@@ -848,6 +848,7 @@ internal fun StreamDestination(
                 resumeProgressFraction = launch.resumeProgressFraction,
                 manualSelection = launch.manualSelection,
                 startFromBeginning = launch.startFromBeginning,
+                isDownloadMode = launch.isDownloadMode,
                 onStreamSelected = { stream, resolvedResumePositionMs, resolvedResumeProgressFraction ->
                     openSelectedStream(
                         stream = stream,

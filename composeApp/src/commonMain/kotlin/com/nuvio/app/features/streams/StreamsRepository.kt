@@ -48,7 +48,7 @@ object StreamsRepository {
     ): String =
         "$type::$videoId::$season::$episode::$manualSelection"
 
-    fun load(type: String, videoId: String, parentMetaId: String? = null, season: Int? = null, episode: Int? = null, manualSelection: Boolean = false) {
+    fun load(type: String, videoId: String, parentMetaId: String? = null, season: Int? = null, episode: Int? = null, manualSelection: Boolean = false, isDownloadMode: Boolean = false) {
         PluginRepository.setLocalPluginSearchPaused(false)
         load(
             type = type,
@@ -58,10 +58,11 @@ object StreamsRepository {
             episode = episode,
             manualSelection = manualSelection,
             forceRefresh = false,
+            isDownloadMode = isDownloadMode,
         )
     }
 
-    fun reload(type: String, videoId: String, parentMetaId: String? = null, season: Int? = null, episode: Int? = null, manualSelection: Boolean = false) {
+    fun reload(type: String, videoId: String, parentMetaId: String? = null, season: Int? = null, episode: Int? = null, manualSelection: Boolean = false, isDownloadMode: Boolean = false) {
         PluginRepository.setLocalPluginSearchPaused(false)
         load(
             type = type,
@@ -71,10 +72,11 @@ object StreamsRepository {
             episode = episode,
             manualSelection = manualSelection,
             forceRefresh = true,
+            isDownloadMode = isDownloadMode,
         )
     }
 
-    private fun load(type: String, videoId: String, parentMetaId: String?, season: Int?, episode: Int?, manualSelection: Boolean, forceRefresh: Boolean) {
+    private fun load(type: String, videoId: String, parentMetaId: String?, season: Int?, episode: Int?, manualSelection: Boolean, forceRefresh: Boolean, isDownloadMode: Boolean = false) {
         val pluginUiState = if (AppFeaturePolicy.pluginsEnabled) {
             PluginRepository.initialize()
             PluginRepository.uiState.value
@@ -271,6 +273,8 @@ object StreamsRepository {
                     bingeGroupOnly = bingeGroupOnly,
                     debridEnabled = debridSettings.canResolvePlayableLinks,
                     activeResolverProviderId = debridSettings.activeResolverProviderId,
+                    isDownloadMode = isDownloadMode,
+                    downloadMaxSizeGb = playerSettings.streamAutoPlayDownloadMaxSizeGb,
                 )
 
             fun settleAutoPlay(evaluation: StreamAutoPlayEvaluation) {

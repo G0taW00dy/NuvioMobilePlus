@@ -1239,6 +1239,9 @@
     <string name="settings_playback_timeout_instant">Instant</string>
     <string name="settings_playback_timeout_seconds">%1$ss</string>
     <string name="settings_playback_timeout_unlimited">Unlimited</string>
+    <string name="settings_playback_download_max_size">Autoplay Download Max File Size</string>
+    <string name="settings_playback_download_max_size_description">Skip streams larger than this size when auto-downloading.</string>
+    <string name="settings_playback_download_max_size_gb">%1$s GB</string>
     <string name="settings_playback_tunneled_playback">Tunneled Playback</string>
     <string name="settings_playback_tunneled_playback_description">Hardware-level audio/video sync. May improve playback on some Android TV devices</string>
     <string name="settings_playback_exo_native_memory">ExoPlayer Native Memory</string>

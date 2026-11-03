@@ -72,6 +72,7 @@ import com.nuvio.app.features.player.IosTargetPrimaries
 import com.nuvio.app.features.player.IosTargetTransfer
 import com.nuvio.app.features.player.PlayerSettingsRepository
 import com.nuvio.app.features.player.STREAM_AUTO_PLAY_TIMEOUT_VALUES
+import com.nuvio.app.features.player.STREAM_AUTO_PLAY_DOWNLOAD_MAX_SIZE_VALUES
 import com.nuvio.app.features.player.SubtitleBackgroundColorSwatches
 import com.nuvio.app.features.player.SubtitleColorSwatches
 import com.nuvio.app.features.player.SubtitleLanguageOption
@@ -920,6 +921,64 @@ private fun PlaybackSettingsSection(
                         },
                         valueRange = 0f..maxIndex,
                         steps = calculateSteps(0f, maxIndex, 1f),
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                SettingsGroupDivider(isTablet = isTablet)
+                val downloadMaxSizeGb = autoPlayPlayerSettings.streamAutoPlayDownloadMaxSizeGb
+                val downloadMaxSizeLabel = when (downloadMaxSizeGb) {
+                    0 -> stringResource(Res.string.settings_playback_timeout_unlimited)
+                    else -> stringResource(Res.string.settings_playback_download_max_size_gb, downloadMaxSizeGb)
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = if (isTablet) 18.dp else 16.dp, vertical = 10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                text = stringResource(Res.string.settings_playback_download_max_size),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = stringResource(Res.string.settings_playback_download_max_size_description),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        ValueBox(text = downloadMaxSizeLabel, modifier = Modifier.wrapContentWidth())
+                    }
+                    val sizeIndex = STREAM_AUTO_PLAY_DOWNLOAD_MAX_SIZE_VALUES.indexOf(downloadMaxSizeGb)
+                        .coerceAtLeast(0)
+                    val maxSizeIndex = (STREAM_AUTO_PLAY_DOWNLOAD_MAX_SIZE_VALUES.size - 1).toFloat()
+                    var sizeSliderValue by remember(sizeIndex) { mutableFloatStateOf(sizeIndex.toFloat()) }
+                    var lastSizeHapticStep by remember(sizeIndex) { mutableStateOf(sizeIndex.toFloat()) }
+                    Slider(
+                        value = sizeSliderValue,
+                        onValueChange = {
+                            val snapped = snapToStep(it, 1f)
+                            sizeSliderValue = snapped
+
+                            if (snapped != lastSizeHapticStep) {
+                                lastSizeHapticStep = snapped
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                        },
+                        onValueChangeFinished = {
+                            val index = sizeSliderValue.toInt().coerceIn(0, STREAM_AUTO_PLAY_DOWNLOAD_MAX_SIZE_VALUES.size - 1)
+                            PlayerSettingsRepository.setStreamAutoPlayDownloadMaxSizeGb(STREAM_AUTO_PLAY_DOWNLOAD_MAX_SIZE_VALUES[index])
+                        },
+                        valueRange = 0f..maxSizeIndex,
+                        steps = calculateSteps(0f, maxSizeIndex, 1f),
                         colors = SliderDefaults.colors(
                             thumbColor = MaterialTheme.colorScheme.primary,
                             activeTrackColor = MaterialTheme.colorScheme.primary,

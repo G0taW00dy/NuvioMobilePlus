@@ -336,3 +336,31 @@ data class StreamsUiState(
     val hasAnyStreams: Boolean
         get() = groups.any { it.streams.isNotEmpty() }
 }
+
+private val STREAM_SIZE_REGEX = Regex("""(?i)\b(\d+(?:[.,]\d+)?)\s*(GB|GiB|MB|MiB|TB|TiB)\b""")
+
+fun StreamItem.estimatedSizeBytes(): Long? {
+    val direct = clientResolve?.stream?.raw?.size?.takeIf { it > 0L }
+        ?: behaviorHints.videoSize?.takeIf { it > 0L }
+        ?: debridCacheStatus?.cachedSize?.takeIf { it > 0L }
+    if (direct != null) return direct
+
+    fun parseFrom(text: String?): Long? {
+        if (text.isNullOrBlank()) return null
+        val match = STREAM_SIZE_REGEX.find(text) ?: return null
+        val amount = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
+        val unit = match.groupValues[2].uppercase()
+        val multiplier = when (unit) {
+            "TB", "TIB" -> 1024L * 1024L * 1024L * 1024L
+            "GB", "GIB" -> 1024L * 1024L * 1024L
+            "MB", "MIB" -> 1024L * 1024L
+            else -> return null
+        }
+        return (amount * multiplier).toLong()
+    }
+
+    return parseFrom(description)
+        ?: parseFrom(title)
+        ?: parseFrom(name)
+}
+

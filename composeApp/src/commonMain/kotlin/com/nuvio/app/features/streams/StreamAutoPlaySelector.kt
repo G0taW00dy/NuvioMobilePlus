@@ -50,6 +50,8 @@ object StreamAutoPlaySelector {
         bingeGroupOnly: Boolean = false,
         debridEnabled: Boolean = true,
         activeResolverProviderId: String? = null,
+        isDownloadMode: Boolean = false,
+        downloadMaxSizeGb: Int = 0,
     ): StreamItem? =
         evaluateAutoPlayStream(
             streams = streams,
@@ -64,6 +66,8 @@ object StreamAutoPlaySelector {
             bingeGroupOnly = bingeGroupOnly,
             debridEnabled = debridEnabled,
             activeResolverProviderId = activeResolverProviderId,
+            isDownloadMode = isDownloadMode,
+            downloadMaxSizeGb = downloadMaxSizeGb,
         ).stream
 
     fun evaluateAutoPlayStream(
@@ -79,6 +83,8 @@ object StreamAutoPlaySelector {
         bingeGroupOnly: Boolean = false,
         debridEnabled: Boolean = true,
         activeResolverProviderId: String? = null,
+        isDownloadMode: Boolean = false,
+        downloadMaxSizeGb: Int = 0,
     ): StreamAutoPlayEvaluation {
         if (streams.isEmpty()) return StreamAutoPlayEvaluation()
 
@@ -89,13 +95,23 @@ object StreamAutoPlaySelector {
         }
         val candidateStreams = sourceScopedStreams.filter { stream ->
             val isAddonStream = stream.addonName in installedAddonNames
-            if (stream.serverTarget != null) {
+            val matchesSource = if (stream.serverTarget != null) {
                 true
             } else if (isAddonStream) {
                 selectedAddons.isEmpty() || stream.addonName in selectedAddons
             } else {
                 selectedPlugins.isEmpty() || stream.addonName in selectedPlugins
             }
+            if (!matchesSource) return@filter false
+
+            if (isDownloadMode && downloadMaxSizeGb > 0) {
+                val maxBytes = downloadMaxSizeGb.toLong() * 1024L * 1024L * 1024L
+                val size = stream.estimatedSizeBytes()
+                if (size != null && size > maxBytes) {
+                    return@filter false
+                }
+            }
+            true
         }
         if (candidateStreams.isEmpty()) return StreamAutoPlayEvaluation()
         if (mode == StreamAutoPlayMode.MANUAL && !bingeGroupOnly) {

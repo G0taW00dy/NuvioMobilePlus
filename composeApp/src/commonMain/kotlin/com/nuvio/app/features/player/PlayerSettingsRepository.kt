@@ -14,6 +14,24 @@ val STREAM_AUTO_PLAY_TIMEOUT_VALUES: List<Int> = listOf(
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, Int.MAX_VALUE
 )
 
+val STREAM_AUTO_PLAY_DOWNLOAD_MAX_SIZE_VALUES: List<Int> = listOf(
+    0, 1, 2, 3, 4, 5, 8, 10, 15, 20
+)
+
+fun snapToAllowedDownloadMaxSize(value: Int): Int {
+    if (value <= 0) return 0
+    var bestValue = STREAM_AUTO_PLAY_DOWNLOAD_MAX_SIZE_VALUES[0]
+    var bestDistance = Long.MAX_VALUE
+    for (allowed in STREAM_AUTO_PLAY_DOWNLOAD_MAX_SIZE_VALUES) {
+        val distance = kotlin.math.abs(value.toLong() - allowed.toLong())
+        if (distance < bestDistance || (distance == bestDistance && allowed < bestValue)) {
+            bestDistance = distance
+            bestValue = allowed
+        }
+    }
+    return bestValue
+}
+
 /**
  * Snaps [value] to the nearest allowed timeout value in [STREAM_AUTO_PLAY_TIMEOUT_VALUES].
  * Ties break to the lower value. Negative values snap to 0.
@@ -79,6 +97,7 @@ data class PlayerSettingsUiState(
     val streamAutoPlaySelectedPlugins: Set<String> = emptySet(),
     val streamAutoPlayRegex: String = "",
     val streamAutoPlayTimeoutSeconds: Int = 3,
+    val streamAutoPlayDownloadMaxSizeGb: Int = 5,
     val skipIntroEnabled: Boolean = true,
     val autoSkipSegmentTypes: Set<AutoSkipSegmentType> = emptySet(),
     val animeSkipEnabled: Boolean = false,
@@ -165,6 +184,7 @@ object PlayerSettingsRepository {
     private var streamAutoPlaySelectedPlugins: Set<String> = emptySet()
     private var streamAutoPlayRegex = ""
     private var streamAutoPlayTimeoutSeconds = 3
+    private var streamAutoPlayDownloadMaxSizeGb = 5
     private var skipIntroEnabled = true
     private var autoSkipSegmentTypes: Set<AutoSkipSegmentType> = emptySet()
     private var animeSkipEnabled = false
@@ -257,6 +277,7 @@ object PlayerSettingsRepository {
         streamAutoPlaySelectedPlugins = emptySet()
         streamAutoPlayRegex = ""
         streamAutoPlayTimeoutSeconds = 3
+        streamAutoPlayDownloadMaxSizeGb = 5
         skipIntroEnabled = true
         autoSkipSegmentTypes = emptySet()
         animeSkipEnabled = false
@@ -402,6 +423,11 @@ object PlayerSettingsRepository {
         }
         streamAutoPlayRegex = PlayerSettingsStorage.loadStreamAutoPlayRegex() ?: ""
         streamAutoPlayTimeoutSeconds = PlayerSettingsStorage.loadStreamAutoPlayTimeoutSeconds() ?: 3
+        streamAutoPlayDownloadMaxSizeGb = PlayerSettingsStorage.loadStreamAutoPlayDownloadMaxSizeGb() ?: 5
+        if (streamAutoPlayDownloadMaxSizeGb !in STREAM_AUTO_PLAY_DOWNLOAD_MAX_SIZE_VALUES) {
+            streamAutoPlayDownloadMaxSizeGb = snapToAllowedDownloadMaxSize(streamAutoPlayDownloadMaxSizeGb)
+            PlayerSettingsStorage.saveStreamAutoPlayDownloadMaxSizeGb(streamAutoPlayDownloadMaxSizeGb)
+        }
         // Legacy migration: 11 was the old sentinel for "unlimited"
         if (streamAutoPlayTimeoutSeconds == 11) {
             streamAutoPlayTimeoutSeconds = Int.MAX_VALUE
@@ -891,6 +917,14 @@ object PlayerSettingsRepository {
         PlayerSettingsStorage.saveStreamAutoPlayTimeoutSeconds(seconds)
     }
 
+    fun setStreamAutoPlayDownloadMaxSizeGb(sizeGb: Int) {
+        ensureLoaded()
+        if (streamAutoPlayDownloadMaxSizeGb == sizeGb) return
+        streamAutoPlayDownloadMaxSizeGb = sizeGb
+        publish()
+        PlayerSettingsStorage.saveStreamAutoPlayDownloadMaxSizeGb(sizeGb)
+    }
+
     fun setSkipIntroEnabled(enabled: Boolean) {
         ensureLoaded()
         if (skipIntroEnabled == enabled) return
@@ -1249,6 +1283,7 @@ object PlayerSettingsRepository {
             streamAutoPlaySelectedPlugins = streamAutoPlaySelectedPlugins,
             streamAutoPlayRegex = streamAutoPlayRegex,
             streamAutoPlayTimeoutSeconds = streamAutoPlayTimeoutSeconds,
+            streamAutoPlayDownloadMaxSizeGb = streamAutoPlayDownloadMaxSizeGb,
             skipIntroEnabled = skipIntroEnabled,
             autoSkipSegmentTypes = autoSkipSegmentTypes,
             animeSkipEnabled = animeSkipEnabled,

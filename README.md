@@ -8,28 +8,29 @@
     Bring your own sources. Nuvio turns them into a library with artwork, ratings, subtitles, and your place saved on every screen.
   </p>
 
-  [Website](https://nuvio.tv) · [GitHub releases](https://github.com/NuvioMedia/NuvioMobile/releases/latest) · [Support Nuvio](https://nuvio.tv/support)
+  [Website](https://nuvio.tv) · [GitHub releases](https://github.com/prneut/NuvioMobilePlus/releases/latest) · [Support Nuvio](https://nuvio.tv/support)
 
 </div>
 
 ## Nuvio Mobile Plus Fork
 
 This fork (`Nuvio Mobile Plus`) brings additional enhancements on top of official Nuvio Mobile:
-- **1-Click Movie & Episode Download**: Direct download trigger on the details screen and season episode list.
+- **1-Click Movie & Episode Download**: Direct download trigger on the details screen, poster zoom overlay, and season episode list.
+- **Autoplay Download Max File Size Limit**: Configurable max size slider in Stream Auto-Play Settings (default: 5 GB, customizable up to 20 GB or Unlimited) to prevent accidentally downloading huge 30GB+ remuxes.
 - **Background Download Queue**: Downloads route directly to the native background scheduler without initiating playback.
 - **Skip Next Controls**: Dedicated Next Episode player button in center player controls.
 - **Custom In-App Updates**: Seamless update checks pointing to `prneut/NuvioMobilePlus`.
 
 ## Get Nuvio Mobile
 
+- [Android APK (GitHub Releases)](https://github.com/prneut/NuvioMobilePlus/releases/latest)
 - [Android on Google Play](https://play.google.com/store/apps/details?id=com.nuvio.app)
-- [Android APK](https://github.com/NuvioMedia/NuvioMobile/releases/latest)
 - iOS via AltStore or SideStore: add [this source URL](https://raw.githubusercontent.com/NuvioMedia/NuvioMobile/cmp-rewrite/store.json) in the app's Sources section, then install Nuvio.
 
 ## Build from source
 
 ```bash
-git clone https://github.com/NuvioMedia/NuvioMobile.git
+git clone https://github.com/prneut/NuvioMobilePlus.git
 cd NuvioMobile
 ```
 

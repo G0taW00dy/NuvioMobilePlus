@@ -291,6 +291,76 @@ class StreamAutoPlaySelectorTest {
         assertEquals(stream, selected)
     }
 
+
+    @Test
+    fun `download mode filters streams exceeding downloadMaxSizeGb`() {
+        val hugeRemux = stream(
+            addonName = "Torrentio",
+            url = "https://example.com/huge.mkv",
+            name = "4K Remux (35.4 GB)",
+            description = "💾 35.4 GB",
+        )
+        val normalStream = stream(
+            addonName = "Torrentio",
+            url = "https://example.com/normal.mkv",
+            name = "1080p (3.2 GB)",
+            description = "💾 3.2 GB",
+        )
+
+        val playSelected = StreamAutoPlaySelector.selectAutoPlayStream(
+            streams = listOf(hugeRemux, normalStream),
+            mode = StreamAutoPlayMode.FIRST_STREAM,
+            regexPattern = "",
+            source = StreamAutoPlaySource.ALL_SOURCES,
+            installedAddonNames = setOf("Torrentio"),
+            selectedAddons = emptySet(),
+            selectedPlugins = emptySet(),
+            isDownloadMode = false,
+            downloadMaxSizeGb = 5,
+        )
+        assertEquals(hugeRemux, playSelected)
+
+        val downloadSelected = StreamAutoPlaySelector.selectAutoPlayStream(
+            streams = listOf(hugeRemux, normalStream),
+            mode = StreamAutoPlayMode.FIRST_STREAM,
+            regexPattern = "",
+            source = StreamAutoPlaySource.ALL_SOURCES,
+            installedAddonNames = setOf("Torrentio"),
+            selectedAddons = emptySet(),
+            selectedPlugins = emptySet(),
+            isDownloadMode = true,
+            downloadMaxSizeGb = 5,
+        )
+        assertEquals(normalStream, downloadSelected)
+    }
+
+    @Test
+    fun `download mode returns null when all streams exceed downloadMaxSizeGb`() {
+        val huge1 = stream(
+            addonName = "Torrentio",
+            url = "https://example.com/huge1.mkv",
+            description = "💾 25 GB",
+        )
+        val huge2 = stream(
+            addonName = "Torrentio",
+            url = "https://example.com/huge2.mkv",
+            description = "💾 18 GB",
+        )
+
+        val selected = StreamAutoPlaySelector.selectAutoPlayStream(
+            streams = listOf(huge1, huge2),
+            mode = StreamAutoPlayMode.FIRST_STREAM,
+            regexPattern = "",
+            source = StreamAutoPlaySource.ALL_SOURCES,
+            installedAddonNames = setOf("Torrentio"),
+            selectedAddons = emptySet(),
+            selectedPlugins = emptySet(),
+            isDownloadMode = true,
+            downloadMaxSizeGb = 5,
+        )
+        assertNull(selected)
+    }
+
     private fun stream(
         addonName: String,
         url: String? = null,
@@ -301,8 +371,12 @@ class StreamAutoPlaySelectorTest {
         directDebridService: String = "torbox",
         infoHash: String? = null,
         cacheState: StreamDebridCacheState? = null,
+        description: String? = null,
+        videoSize: Long? = null,
     ): StreamItem = StreamItem(
         name = name,
+        title = name,
+        description = description,
         url = url,
         externalUrl = externalUrl,
         infoHash = infoHash,
@@ -327,6 +401,7 @@ class StreamAutoPlaySelectorTest {
         },
         behaviorHints = StreamBehaviorHints(
             bingeGroup = bingeGroup,
+            videoSize = videoSize,
         ),
     )
 }
