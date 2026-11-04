@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -222,7 +223,7 @@ fun SeriesDownloadScreen(
                     contentPadding = PaddingValues(
                         start = tokens.spacing.screenHorizontal,
                         end = tokens.spacing.screenHorizontal,
-                        bottom = 120.dp,
+                        bottom = 200.dp,
                     ),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -650,6 +651,7 @@ private fun SeriesDownloadBottomBar(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
                 // Active Batch Status Header (if running)
@@ -723,31 +725,50 @@ private fun SeriesDownloadBottomBar(
 
                 // Download Button for currently selected episodes
                 if (selectedCount > 0) {
-                    Button(
-                        onClick = onStartDownload,
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = tokens.colors.accent,
-                            contentColor = Color.White,
-                        ),
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Download,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        val btnLabel = if (selectedCount == 1) {
-                            stringResource(Res.string.series_download_action_single)
-                        } else {
-                            stringResource(Res.string.series_download_action, selectedCount)
+                        Button(
+                            onClick = onStartDownload,
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = tokens.colors.accent,
+                                contentColor = Color.White,
+                            ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            val btnLabel = if (selectedCount == 1) {
+                                stringResource(Res.string.series_download_action_single)
+                            } else {
+                                stringResource(Res.string.series_download_action, selectedCount)
+                            }
+                            Text(
+                                text = btnLabel,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
                         }
-                        Text(
-                            text = btnLabel,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
+
+                        IconButton(
+                            onClick = onClearSelection,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(tokens.colors.surfaceCard, RoundedCornerShape(14.dp)),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear Selection",
+                                tint = tokens.colors.textMuted,
+                            )
+                        }
                     }
                 }
             }
