@@ -262,15 +262,19 @@ object StreamsRepository {
             val debridAvailabilityJobs = mutableListOf<Job>()
             var autoSelectTriggered = false
             var timeoutElapsed = false
+            val effectiveSource = if (isDownloadMode) playerSettings.streamAutoDownloadSource else playerSettings.streamAutoPlaySource
+            val effectiveSelectedAddons = if (isDownloadMode) playerSettings.streamAutoDownloadSelectedAddons else playerSettings.streamAutoPlaySelectedAddons
+            val effectiveSelectedPlugins = if (isDownloadMode) playerSettings.streamAutoDownloadSelectedPlugins else playerSettings.streamAutoPlaySelectedPlugins
+
             fun evaluateAutoPlay(bingeGroupOnly: Boolean = false): StreamAutoPlayEvaluation =
                 StreamAutoPlaySelector.evaluateAutoPlayStream(
                     streams = _uiState.value.groups.flatMap { it.streams },
                     mode = autoPlayMode,
                     regexPattern = playerSettings.streamAutoPlayRegex,
-                    source = playerSettings.streamAutoPlaySource,
+                    source = effectiveSource,
                     installedAddonNames = installedAddonNames,
-                    selectedAddons = playerSettings.streamAutoPlaySelectedAddons,
-                    selectedPlugins = playerSettings.streamAutoPlaySelectedPlugins,
+                    selectedAddons = effectiveSelectedAddons,
+                    selectedPlugins = effectiveSelectedPlugins,
                     preferredBingeGroup = persistedBingeGroup,
                     preferBingeGroupInSelection = persistedBingeGroup != null,
                     bingeGroupOnly = bingeGroupOnly,
@@ -350,7 +354,7 @@ object StreamsRepository {
 
                 if (
                     _uiState.value.groups.areAutoPlaySourcesLoaded(
-                        source = playerSettings.streamAutoPlaySource,
+                        source = effectiveSource,
                         installedAddonIds = installedAddonIds,
                     )
                 ) {

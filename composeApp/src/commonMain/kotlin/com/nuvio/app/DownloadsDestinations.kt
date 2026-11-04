@@ -3,9 +3,11 @@ package com.nuvio.app
 import androidx.compose.runtime.Composable
 import com.nuvio.app.features.downloads.DownloadItem
 import com.nuvio.app.features.downloads.DownloadsScreen
+import com.nuvio.app.features.downloads.SeriesDownloadScreen
 import com.nuvio.app.navigation.DownloadShowRoute
 import com.nuvio.app.navigation.DownloadsRoute
 import com.nuvio.app.navigation.NuvioNavigator
+import com.nuvio.app.navigation.SeriesDownloadRoute
 
 @Composable
 internal fun DownloadsDestination(
@@ -38,5 +40,18 @@ internal fun DownloadShowDestination(
         onOpenDownload = onOpenDownload,
         initialShowId = route.showId,
         onBackFromShow = onBack,
+    )
+}
+
+@Composable
+internal fun SeriesDownloadDestination(
+    route: SeriesDownloadRoute,
+    navController: NuvioNavigator,
+) {
+    val onBack = rememberGuardedPopBackStack(navController, route)
+    SeriesDownloadScreen(
+        metaId = route.metaId,
+        initialSeasonNumber = route.initialSeason,
+        onBack = onBack,
     )
 }

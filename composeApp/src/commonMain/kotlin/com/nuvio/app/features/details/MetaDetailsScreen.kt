@@ -180,6 +180,7 @@ fun MetaDetailsScreen(
     onPlay: ((type: String, videoId: String, parentMetaId: String, parentMetaType: String, title: String, logo: String?, poster: String?, background: String?, seasonNumber: Int?, episodeNumber: Int?, episodeTitle: String?, episodeThumbnail: String?, pauseDescription: String?, resumePositionMs: Long?) -> Unit)? = null,
     onPlayManually: ((type: String, videoId: String, parentMetaId: String, parentMetaType: String, title: String, logo: String?, poster: String?, background: String?, seasonNumber: Int?, episodeNumber: Int?, episodeTitle: String?, episodeThumbnail: String?, pauseDescription: String?, resumePositionMs: Long?) -> Unit)? = null,
     onDownload: ((type: String, videoId: String, parentMetaId: String, parentMetaType: String, title: String, logo: String?, poster: String?, background: String?, seasonNumber: Int?, episodeNumber: Int?, episodeTitle: String?, episodeThumbnail: String?, pauseDescription: String?, resumePositionMs: Long?) -> Unit)? = null,
+    onDownloadSeries: ((metaId: String, initialSeason: Int?) -> Unit)? = null,
     onOpenMeta: ((MetaPreview) -> Unit)? = null,
     onCastClick: ((MetaPerson, String?) -> Unit)? = null,
     onCompanyClick: ((MetaCompany, String) -> Unit)? = null,
@@ -860,23 +861,27 @@ fun MetaDetailsScreen(
                 }
                 val onPrimaryDownloadClick: () -> Unit = {
                     when {
-                        (meta.type == "series" || hasEpisodes) && seriesAction != null -> {
-                            onDownload?.invoke(
-                                meta.type,
-                                seriesStreamVideoId ?: seriesAction.videoId,
-                                meta.id,
-                                meta.type,
-                                meta.name,
-                                meta.logo,
-                                meta.poster,
-                                meta.background,
-                                seriesAction.seasonNumber,
-                                seriesAction.episodeNumber,
-                                seriesAction.episodeTitle,
-                                seriesAction.episodeThumbnail,
-                                seriesPauseDescription,
-                                seriesAction.resumePositionMs,
-                            )
+                        (meta.type == "series" || hasEpisodes) -> {
+                            if (onDownloadSeries != null) {
+                                onDownloadSeries.invoke(meta.id, seriesAction?.seasonNumber ?: 1)
+                            } else if (seriesAction != null) {
+                                onDownload?.invoke(
+                                    meta.type,
+                                    seriesStreamVideoId ?: seriesAction.videoId,
+                                    meta.id,
+                                    meta.type,
+                                    meta.name,
+                                    meta.logo,
+                                    meta.poster,
+                                    meta.background,
+                                    seriesAction.seasonNumber,
+                                    seriesAction.episodeNumber,
+                                    seriesAction.episodeTitle,
+                                    seriesAction.episodeThumbnail,
+                                    seriesPauseDescription,
+                                    seriesAction.resumePositionMs,
+                                )
+                            }
                         }
 
                         else -> {
@@ -1543,6 +1548,7 @@ fun MetaDetailsScreen(
                                 isSeasonWatched = isSeasonWatched,
                                 canMarkPreviousSeasons = canMarkPreviousSeasons,
                                 onDismiss = { selectedSeasonForActions = null },
+                                onDownloadSeason = onDownloadSeries?.let { action -> { action(meta.id, selectedSeason) } },
                                 onToggleSeasonWatched = {
                                     WatchingActions.toggleSeasonWatched(
                                         meta = meta,

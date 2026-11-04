@@ -98,6 +98,9 @@ data class PlayerSettingsUiState(
     val streamAutoPlayRegex: String = "",
     val streamAutoPlayTimeoutSeconds: Int = 3,
     val streamAutoPlayDownloadMaxSizeGb: Int = 5,
+    val streamAutoDownloadSource: StreamAutoPlaySource = StreamAutoPlaySource.ALL_SOURCES,
+    val streamAutoDownloadSelectedAddons: Set<String> = emptySet(),
+    val streamAutoDownloadSelectedPlugins: Set<String> = emptySet(),
     val skipIntroEnabled: Boolean = true,
     val autoSkipSegmentTypes: Set<AutoSkipSegmentType> = emptySet(),
     val animeSkipEnabled: Boolean = false,
@@ -185,6 +188,9 @@ object PlayerSettingsRepository {
     private var streamAutoPlayRegex = ""
     private var streamAutoPlayTimeoutSeconds = 3
     private var streamAutoPlayDownloadMaxSizeGb = 5
+    private var streamAutoDownloadSource = StreamAutoPlaySource.ALL_SOURCES
+    private var streamAutoDownloadSelectedAddons: Set<String> = emptySet()
+    private var streamAutoDownloadSelectedPlugins: Set<String> = emptySet()
     private var skipIntroEnabled = true
     private var autoSkipSegmentTypes: Set<AutoSkipSegmentType> = emptySet()
     private var animeSkipEnabled = false
@@ -278,6 +284,9 @@ object PlayerSettingsRepository {
         streamAutoPlayRegex = ""
         streamAutoPlayTimeoutSeconds = 3
         streamAutoPlayDownloadMaxSizeGb = 5
+        streamAutoDownloadSource = StreamAutoPlaySource.ALL_SOURCES
+        streamAutoDownloadSelectedAddons = emptySet()
+        streamAutoDownloadSelectedPlugins = emptySet()
         skipIntroEnabled = true
         autoSkipSegmentTypes = emptySet()
         animeSkipEnabled = false
@@ -420,6 +429,22 @@ object PlayerSettingsRepository {
             if (streamAutoPlaySelectedPlugins.isNotEmpty()) {
                 streamAutoPlaySelectedPlugins = emptySet()
                 PlayerSettingsStorage.saveStreamAutoPlaySelectedPlugins(emptySet())
+            }
+        }
+        streamAutoDownloadSource = PlayerSettingsStorage.loadStreamAutoDownloadSource()
+            ?.let { runCatching { StreamAutoPlaySource.valueOf(it) }.getOrNull() }
+            ?: StreamAutoPlaySource.ALL_SOURCES
+        streamAutoDownloadSelectedAddons = PlayerSettingsStorage.loadStreamAutoDownloadSelectedAddons() ?: emptySet()
+        streamAutoDownloadSelectedPlugins = PlayerSettingsStorage.loadStreamAutoDownloadSelectedPlugins() ?: emptySet()
+        if (!AppFeaturePolicy.pluginsEnabled) {
+            val normalizedDownloadSource = normalizeStreamAutoPlaySource(streamAutoDownloadSource)
+            if (normalizedDownloadSource != streamAutoDownloadSource) {
+                streamAutoDownloadSource = normalizedDownloadSource
+                PlayerSettingsStorage.saveStreamAutoDownloadSource(normalizedDownloadSource.name)
+            }
+            if (streamAutoDownloadSelectedPlugins.isNotEmpty()) {
+                streamAutoDownloadSelectedPlugins = emptySet()
+                PlayerSettingsStorage.saveStreamAutoDownloadSelectedPlugins(emptySet())
             }
         }
         streamAutoPlayRegex = PlayerSettingsStorage.loadStreamAutoPlayRegex() ?: ""
@@ -931,6 +956,32 @@ object PlayerSettingsRepository {
         PlayerSettingsStorage.saveStreamAutoPlayDownloadMaxSizeGb(sizeGb)
     }
 
+    fun setStreamAutoDownloadSource(source: StreamAutoPlaySource) {
+        ensureLoaded()
+        val normalizedSource = normalizeStreamAutoPlaySource(source)
+        if (streamAutoDownloadSource == normalizedSource) return
+        streamAutoDownloadSource = normalizedSource
+        publish()
+        PlayerSettingsStorage.saveStreamAutoDownloadSource(normalizedSource.name)
+    }
+
+    fun setStreamAutoDownloadSelectedAddons(addons: Set<String>) {
+        ensureLoaded()
+        if (streamAutoDownloadSelectedAddons == addons) return
+        streamAutoDownloadSelectedAddons = addons
+        publish()
+        PlayerSettingsStorage.saveStreamAutoDownloadSelectedAddons(addons)
+    }
+
+    fun setStreamAutoDownloadSelectedPlugins(plugins: Set<String>) {
+        ensureLoaded()
+        val normalizedPlugins = if (AppFeaturePolicy.pluginsEnabled) plugins else emptySet()
+        if (streamAutoDownloadSelectedPlugins == normalizedPlugins) return
+        streamAutoDownloadSelectedPlugins = normalizedPlugins
+        publish()
+        PlayerSettingsStorage.saveStreamAutoDownloadSelectedPlugins(normalizedPlugins)
+    }
+
     fun setSkipIntroEnabled(enabled: Boolean) {
         ensureLoaded()
         if (skipIntroEnabled == enabled) return
@@ -1290,6 +1341,9 @@ object PlayerSettingsRepository {
             streamAutoPlayRegex = streamAutoPlayRegex,
             streamAutoPlayTimeoutSeconds = streamAutoPlayTimeoutSeconds,
             streamAutoPlayDownloadMaxSizeGb = streamAutoPlayDownloadMaxSizeGb,
+            streamAutoDownloadSource = streamAutoDownloadSource,
+            streamAutoDownloadSelectedAddons = streamAutoDownloadSelectedAddons,
+            streamAutoDownloadSelectedPlugins = streamAutoDownloadSelectedPlugins,
             skipIntroEnabled = skipIntroEnabled,
             autoSkipSegmentTypes = autoSkipSegmentTypes,
             animeSkipEnabled = animeSkipEnabled,

@@ -17,6 +17,7 @@ import com.nuvio.app.navigation.DetailRoute
 import com.nuvio.app.navigation.EntityBrowseRoute
 import com.nuvio.app.navigation.NuvioNavigator
 import com.nuvio.app.navigation.PersonDetailRoute
+import com.nuvio.app.navigation.SeriesDownloadRoute
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.person_role_creator
@@ -86,6 +87,9 @@ internal fun DetailsDestination(
         onPlay = onPlay,
         onPlayManually = onPlayManually,
         onDownload = onDownload,
+        onDownloadSeries = { metaId, initialSeason ->
+            navController.navigate(SeriesDownloadRoute(metaId = metaId, initialSeason = initialSeason))
+        },
         onOpenMeta = onOpenMeta,
         onCastClick = { person, avatarTransitionKey ->
             val tmdbId = person.tmdbId

@@ -123,6 +123,12 @@ internal expect object PlayerSettingsStorage {
     fun saveStreamAutoPlayTimeoutSeconds(seconds: Int)
     fun loadStreamAutoPlayDownloadMaxSizeGb(): Int?
     fun saveStreamAutoPlayDownloadMaxSizeGb(sizeGb: Int)
+    fun loadStreamAutoDownloadSource(): String?
+    fun saveStreamAutoDownloadSource(source: String)
+    fun loadStreamAutoDownloadSelectedAddons(): Set<String>?
+    fun saveStreamAutoDownloadSelectedAddons(addons: Set<String>)
+    fun loadStreamAutoDownloadSelectedPlugins(): Set<String>?
+    fun saveStreamAutoDownloadSelectedPlugins(plugins: Set<String>)
     fun loadSkipIntroEnabled(): Boolean?
     fun loadAutoSkipMovieCredits(): Boolean?
     fun loadAutoSkipSegmentTypes(): Set<String>?

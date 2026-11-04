@@ -54,6 +54,9 @@ internal fun PlaybackStreamSettings(
     var showAutoPlayAddonSelectionDialog by remember { mutableStateOf(false) }
     var showAutoPlayPluginSelectionDialog by remember { mutableStateOf(false) }
     var showAutoPlayRegexDialog by remember { mutableStateOf(false) }
+    var showAutoDownloadSourceDialog by remember { mutableStateOf(false) }
+    var showAutoDownloadAddonSelectionDialog by remember { mutableStateOf(false) }
+    var showAutoDownloadPluginSelectionDialog by remember { mutableStateOf(false) }
     val pluginsEnabled = AppFeaturePolicy.pluginsEnabled
     val addonUiState by AddonRepository.uiState.collectAsStateWithLifecycle()
     val pluginUiState = if (pluginsEnabled) {
@@ -165,6 +168,47 @@ internal fun PlaybackStreamSettings(
                     )
                 }
                 SettingsGroupDivider(isTablet = isTablet)
+                SettingsNavigationRow(
+                    title = stringResource(Res.string.settings_playback_source_scope),
+                    description = stringResource(settings.streamAutoPlaySource.labelRes(pluginsEnabled)),
+                    isTablet = isTablet,
+                    onClick = { showAutoPlaySourceDialog = true },
+                )
+                if (settings.streamAutoPlaySource != StreamAutoPlaySource.ENABLED_PLUGINS_ONLY) {
+                    SettingsGroupDivider(isTablet = isTablet)
+                    val addonSubtitle = if (settings.streamAutoPlaySelectedAddons.isEmpty()) {
+                        stringResource(Res.string.settings_playback_all_addons)
+                    } else {
+                        stringResource(
+                            Res.string.settings_playback_selected_count,
+                            settings.streamAutoPlaySelectedAddons.size,
+                        )
+                    }
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.settings_playback_allowed_addons),
+                        description = addonSubtitle,
+                        isTablet = isTablet,
+                        onClick = { showAutoPlayAddonSelectionDialog = true },
+                    )
+                }
+                if (pluginsEnabled && settings.streamAutoPlaySource != StreamAutoPlaySource.INSTALLED_ADDONS_ONLY) {
+                    SettingsGroupDivider(isTablet = isTablet)
+                    val pluginSubtitle = if (settings.streamAutoPlaySelectedPlugins.isEmpty()) {
+                        stringResource(Res.string.settings_playback_all_plugins)
+                    } else {
+                        stringResource(
+                            Res.string.settings_playback_selected_count,
+                            settings.streamAutoPlaySelectedPlugins.size,
+                        )
+                    }
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.settings_playback_allowed_plugins),
+                        description = pluginSubtitle,
+                        isTablet = isTablet,
+                        onClick = { showAutoPlayPluginSelectionDialog = true },
+                    )
+                }
+                SettingsGroupDivider(isTablet = isTablet)
                 val downloadMaxSizeGb = settings.streamAutoPlayDownloadMaxSizeGb
                 val downloadMaxSizeLabel = when (downloadMaxSizeGb) {
                     0 -> stringResource(Res.string.settings_playback_timeout_unlimited)
@@ -220,43 +264,43 @@ internal fun PlaybackStreamSettings(
                 }
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsNavigationRow(
-                    title = stringResource(Res.string.settings_playback_source_scope),
-                    description = stringResource(settings.streamAutoPlaySource.labelRes(pluginsEnabled)),
+                    title = stringResource(Res.string.settings_playback_download_source_scope),
+                    description = stringResource(settings.streamAutoDownloadSource.labelRes(pluginsEnabled)),
                     isTablet = isTablet,
-                    onClick = { showAutoPlaySourceDialog = true },
+                    onClick = { showAutoDownloadSourceDialog = true },
                 )
-                if (settings.streamAutoPlaySource != StreamAutoPlaySource.ENABLED_PLUGINS_ONLY) {
+                if (settings.streamAutoDownloadSource != StreamAutoPlaySource.ENABLED_PLUGINS_ONLY) {
                     SettingsGroupDivider(isTablet = isTablet)
-                    val addonSubtitle = if (settings.streamAutoPlaySelectedAddons.isEmpty()) {
-                        stringResource(Res.string.settings_playback_all_addons)
+                    val downloadAddonSubtitle = if (settings.streamAutoDownloadSelectedAddons.isEmpty()) {
+                        stringResource(Res.string.settings_playback_download_all_addons)
                     } else {
                         stringResource(
                             Res.string.settings_playback_selected_count,
-                            settings.streamAutoPlaySelectedAddons.size,
+                            settings.streamAutoDownloadSelectedAddons.size,
                         )
                     }
                     SettingsNavigationRow(
-                        title = stringResource(Res.string.settings_playback_allowed_addons),
-                        description = addonSubtitle,
+                        title = stringResource(Res.string.settings_playback_download_allowed_addons),
+                        description = downloadAddonSubtitle,
                         isTablet = isTablet,
-                        onClick = { showAutoPlayAddonSelectionDialog = true },
+                        onClick = { showAutoDownloadAddonSelectionDialog = true },
                     )
                 }
-                if (pluginsEnabled && settings.streamAutoPlaySource != StreamAutoPlaySource.INSTALLED_ADDONS_ONLY) {
+                if (pluginsEnabled && settings.streamAutoDownloadSource != StreamAutoPlaySource.INSTALLED_ADDONS_ONLY) {
                     SettingsGroupDivider(isTablet = isTablet)
-                    val pluginSubtitle = if (settings.streamAutoPlaySelectedPlugins.isEmpty()) {
-                        stringResource(Res.string.settings_playback_all_plugins)
+                    val downloadPluginSubtitle = if (settings.streamAutoDownloadSelectedPlugins.isEmpty()) {
+                        stringResource(Res.string.settings_playback_download_all_plugins)
                     } else {
                         stringResource(
                             Res.string.settings_playback_selected_count,
-                            settings.streamAutoPlaySelectedPlugins.size,
+                            settings.streamAutoDownloadSelectedPlugins.size,
                         )
                     }
                     SettingsNavigationRow(
-                        title = stringResource(Res.string.settings_playback_allowed_plugins),
-                        description = pluginSubtitle,
+                        title = stringResource(Res.string.settings_playback_download_allowed_plugins),
+                        description = downloadPluginSubtitle,
                         isTablet = isTablet,
-                        onClick = { showAutoPlayPluginSelectionDialog = true },
+                        onClick = { showAutoDownloadPluginSelectionDialog = true },
                     )
                 }
             }
@@ -345,6 +389,58 @@ internal fun PlaybackStreamSettings(
                 showAutoPlayRegexDialog = false
             },
             onDismiss = { showAutoPlayRegexDialog = false },
+        )
+    }
+
+    if (showAutoDownloadSourceDialog) {
+        StreamAutoPlaySourceDialog(
+            pluginsEnabled = pluginsEnabled,
+            selectedSource = settings.streamAutoDownloadSource,
+            onSourceSelected = {
+                PlayerSettingsRepository.setStreamAutoDownloadSource(it)
+                showAutoDownloadSourceDialog = false
+            },
+            onDismiss = { showAutoDownloadSourceDialog = false },
+        )
+    }
+
+    if (showAutoDownloadAddonSelectionDialog) {
+        val addonNames = addonUiState.addons
+            .enabledAddons()
+            .mapNotNull { it.manifest }
+            .filter { manifest -> manifest.resources.any { resource -> resource.name == "stream" } }
+            .map { it.name }
+            .distinct()
+            .sorted()
+        StreamAutoPlayProviderSelectionDialog(
+            title = stringResource(Res.string.settings_playback_download_allowed_addons),
+            allLabel = stringResource(Res.string.settings_playback_download_all_addons),
+            items = addonNames,
+            selectedItems = settings.streamAutoDownloadSelectedAddons,
+            onSelectionSaved = {
+                PlayerSettingsRepository.setStreamAutoDownloadSelectedAddons(it)
+                showAutoDownloadAddonSelectionDialog = false
+            },
+            onDismiss = { showAutoDownloadAddonSelectionDialog = false },
+        )
+    }
+
+    if (pluginsEnabled && showAutoDownloadPluginSelectionDialog) {
+        val pluginNames = pluginUiState.scrapers
+            .filter { it.enabled }
+            .map { it.name }
+            .distinct()
+            .sorted()
+        StreamAutoPlayProviderSelectionDialog(
+            title = stringResource(Res.string.settings_playback_download_allowed_plugins),
+            allLabel = stringResource(Res.string.settings_playback_download_all_plugins),
+            items = pluginNames,
+            selectedItems = settings.streamAutoDownloadSelectedPlugins,
+            onSelectionSaved = {
+                PlayerSettingsRepository.setStreamAutoDownloadSelectedPlugins(it)
+                showAutoDownloadPluginSelectionDialog = false
+            },
+            onDismiss = { showAutoDownloadPluginSelectionDialog = false },
         )
     }
 }

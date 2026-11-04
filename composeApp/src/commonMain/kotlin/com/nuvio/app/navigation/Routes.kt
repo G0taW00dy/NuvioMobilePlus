@@ -98,6 +98,16 @@ data class DownloadShowRoute(
 ) : AppRoute
 
 @Serializable
+data class SeriesDownloadRoute(
+    val metaId: String,
+    val initialSeason: Int? = null,
+    override val title: String = "",
+) : AppRoute {
+    override val preferredTabName: String
+        get() = "Library"
+}
+
+@Serializable
 data class AddonsSettingsRoute(override val title: String = "") : SettingsDestinationRoute
 
 @Serializable

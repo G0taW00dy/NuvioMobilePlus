@@ -183,7 +183,12 @@ internal actual object DownloadsLiveStatusPlatform {
     }
 
     private fun buildSubtitle(item: DownloadItem): String {
-        val detail = item.displaySubtitle
+        val batchProgress = SeriesBatchDownloadManager.getBatchProgress(item)
+        val detail = when {
+            batchProgress != null && item.displaySubtitle.isNotBlank() -> "${item.displaySubtitle} ($batchProgress)"
+            batchProgress != null -> "Episode ($batchProgress)"
+            else -> item.displaySubtitle
+        }
         return when (item.status) {
             DownloadStatus.Downloading -> {
                 val downloaded = formatBytes(item.downloadedBytes)

@@ -458,6 +458,64 @@ class StreamAutoPlaySelectorTest {
         assertEquals(validFilename, selected)
     }
 
+    @Test
+    fun `download mode with selected addons filters out unselected addons`() {
+        val addon1Stream = stream(
+            addonName = "AddonOne",
+            url = "https://example.com/one.mkv",
+            name = "Stream 1",
+            videoSize = 2_000_000_000L,
+        )
+        val addon2Stream = stream(
+            addonName = "AddonTwo",
+            url = "https://example.com/two.mkv",
+            name = "Stream 2",
+            videoSize = 2_000_000_000L,
+        )
+
+        val selected = StreamAutoPlaySelector.selectAutoPlayStream(
+            streams = listOf(addon1Stream, addon2Stream),
+            mode = StreamAutoPlayMode.FIRST_STREAM,
+            regexPattern = "",
+            source = StreamAutoPlaySource.INSTALLED_ADDONS_ONLY,
+            installedAddonNames = setOf("AddonOne", "AddonTwo"),
+            selectedAddons = setOf("AddonTwo"),
+            selectedPlugins = emptySet(),
+            isDownloadMode = true,
+            downloadMaxSizeGb = 5,
+        )
+        assertEquals(addon2Stream, selected)
+    }
+
+    @Test
+    fun `download mode with enabled plugins only filters out standard addons`() {
+        val standardAddonStream = stream(
+            addonName = "StandardAddon",
+            url = "https://example.com/standard.mkv",
+            name = "Stream 1",
+            videoSize = 2_000_000_000L,
+        )
+        val pluginStream = stream(
+            addonName = "PluginScraper",
+            url = "https://example.com/plugin.mkv",
+            name = "Stream 2",
+            videoSize = 2_000_000_000L,
+        )
+
+        val selected = StreamAutoPlaySelector.selectAutoPlayStream(
+            streams = listOf(standardAddonStream, pluginStream),
+            mode = StreamAutoPlayMode.FIRST_STREAM,
+            regexPattern = "",
+            source = StreamAutoPlaySource.ENABLED_PLUGINS_ONLY,
+            installedAddonNames = setOf("StandardAddon"),
+            selectedAddons = emptySet(),
+            selectedPlugins = setOf("PluginScraper"),
+            isDownloadMode = true,
+            downloadMaxSizeGb = 5,
+        )
+        assertEquals(pluginStream, selected)
+    }
+
     private fun stream(
         addonName: String,
         url: String? = null,

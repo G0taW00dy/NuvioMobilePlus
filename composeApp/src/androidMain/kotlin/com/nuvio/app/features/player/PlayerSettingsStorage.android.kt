@@ -79,6 +79,9 @@ actual object PlayerSettingsStorage {
     private const val streamAutoPlayRegexKey = "stream_auto_play_regex"
     private const val streamAutoPlayTimeoutSecondsKey = "stream_auto_play_timeout_seconds"
     private const val streamAutoPlayDownloadMaxSizeGbKey = "stream_auto_play_download_max_size_gb"
+    private const val streamAutoDownloadSourceKey = "stream_auto_download_source"
+    private const val streamAutoDownloadSelectedAddonsKey = "stream_auto_download_selected_addons"
+    private const val streamAutoDownloadSelectedPluginsKey = "stream_auto_download_selected_plugins"
     private const val skipIntroEnabledKey = "skip_intro_enabled"
     private const val autoSkipMovieCreditsKey = "auto_skip_movie_credits"
     private const val autoSkipSegmentTypesKey = "auto_skip_segment_types"
@@ -161,6 +164,9 @@ actual object PlayerSettingsStorage {
         streamAutoPlayRegexKey,
         streamAutoPlayTimeoutSecondsKey,
         streamAutoPlayDownloadMaxSizeGbKey,
+        streamAutoDownloadSourceKey,
+        streamAutoDownloadSelectedAddonsKey,
+        streamAutoDownloadSelectedPluginsKey,
         skipIntroEnabledKey,
         autoSkipMovieCreditsKey,
         autoSkipSegmentTypesKey,
@@ -1011,6 +1017,50 @@ actual object PlayerSettingsStorage {
             ?.apply()
     }
 
+    actual fun loadStreamAutoDownloadSource(): String? =
+        preferences?.getString(ProfileScopedKey.of(streamAutoDownloadSourceKey), null)
+
+    actual fun saveStreamAutoDownloadSource(source: String) {
+        preferences
+            ?.edit()
+            ?.putString(ProfileScopedKey.of(streamAutoDownloadSourceKey), source)
+            ?.apply()
+    }
+
+    actual fun loadStreamAutoDownloadSelectedAddons(): Set<String>? =
+        preferences?.let { sharedPreferences ->
+            val key = ProfileScopedKey.of(streamAutoDownloadSelectedAddonsKey)
+            if (sharedPreferences.contains(key)) {
+                sharedPreferences.getStringSet(key, emptySet()) ?: emptySet()
+            } else {
+                null
+            }
+        }
+
+    actual fun saveStreamAutoDownloadSelectedAddons(addons: Set<String>) {
+        preferences
+            ?.edit()
+            ?.putStringSet(ProfileScopedKey.of(streamAutoDownloadSelectedAddonsKey), addons)
+            ?.apply()
+    }
+
+    actual fun loadStreamAutoDownloadSelectedPlugins(): Set<String>? =
+        preferences?.let { sharedPreferences ->
+            val key = ProfileScopedKey.of(streamAutoDownloadSelectedPluginsKey)
+            if (sharedPreferences.contains(key)) {
+                sharedPreferences.getStringSet(key, emptySet()) ?: emptySet()
+            } else {
+                null
+            }
+        }
+
+    actual fun saveStreamAutoDownloadSelectedPlugins(plugins: Set<String>) {
+        preferences
+            ?.edit()
+            ?.putStringSet(ProfileScopedKey.of(streamAutoDownloadSelectedPluginsKey), plugins)
+            ?.apply()
+    }
+
     actual fun loadSkipIntroEnabled(): Boolean? =
         preferences?.let { sharedPreferences ->
             val key = ProfileScopedKey.of(skipIntroEnabledKey)
@@ -1459,6 +1509,9 @@ actual object PlayerSettingsStorage {
         loadStreamAutoPlayRegex()?.let { put(streamAutoPlayRegexKey, encodeSyncString(it)) }
         loadStreamAutoPlayTimeoutSeconds()?.let { put(streamAutoPlayTimeoutSecondsKey, encodeSyncInt(it)) }
         loadStreamAutoPlayDownloadMaxSizeGb()?.let { put(streamAutoPlayDownloadMaxSizeGbKey, encodeSyncInt(it)) }
+        loadStreamAutoDownloadSource()?.let { put(streamAutoDownloadSourceKey, encodeSyncString(it)) }
+        loadStreamAutoDownloadSelectedAddons()?.let { put(streamAutoDownloadSelectedAddonsKey, encodeSyncStringSet(it)) }
+        loadStreamAutoDownloadSelectedPlugins()?.let { put(streamAutoDownloadSelectedPluginsKey, encodeSyncStringSet(it)) }
         loadSkipIntroEnabled()?.let { put(skipIntroEnabledKey, encodeSyncBoolean(it)) }
         loadAutoSkipMovieCredits()?.let { put(autoSkipMovieCreditsKey, encodeSyncBoolean(it)) }
         loadAutoSkipSegmentTypes()?.let { put(autoSkipSegmentTypesKey, encodeSyncStringSet(it)) }
@@ -1544,6 +1597,9 @@ actual object PlayerSettingsStorage {
         payload.decodeSyncString(streamAutoPlayRegexKey)?.let(::saveStreamAutoPlayRegex)
         payload.decodeSyncInt(streamAutoPlayTimeoutSecondsKey)?.let(::saveStreamAutoPlayTimeoutSeconds)
         payload.decodeSyncInt(streamAutoPlayDownloadMaxSizeGbKey)?.let(::saveStreamAutoPlayDownloadMaxSizeGb)
+        payload.decodeSyncString(streamAutoDownloadSourceKey)?.let(::saveStreamAutoDownloadSource)
+        payload.decodeSyncStringSet(streamAutoDownloadSelectedAddonsKey)?.let(::saveStreamAutoDownloadSelectedAddons)
+        payload.decodeSyncStringSet(streamAutoDownloadSelectedPluginsKey)?.let(::saveStreamAutoDownloadSelectedPlugins)
         payload.decodeSyncBoolean(skipIntroEnabledKey)?.let(::saveSkipIntroEnabled)
         payload.decodeSyncBoolean(autoSkipMovieCreditsKey)?.let(::saveAutoSkipMovieCredits)
         payload.decodeSyncStringSet(autoSkipSegmentTypesKey)?.let(::saveAutoSkipSegmentTypes)

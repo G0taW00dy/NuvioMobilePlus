@@ -1106,26 +1106,35 @@ internal fun MainAppContent(
 
         val onDownload: ContentPlayAction =
             { type, videoId, parentMetaId, parentMetaType, title, logo, poster, background, seasonNumber, episodeNumber, episodeTitle, episodeThumbnail, pauseDescription, resumePositionMs ->
-                launchPlaybackWithDownloadPreference(
-                    type = type,
-                    videoId = videoId,
-                    parentMetaId = parentMetaId,
-                    parentMetaType = parentMetaType,
-                    title = title,
-                    logo = logo,
-                    poster = poster,
-                    background = background,
-                    seasonNumber = seasonNumber,
-                    episodeNumber = episodeNumber,
-                    episodeTitle = episodeTitle,
-                    episodeThumbnail = episodeThumbnail,
-                    pauseDescription = pauseDescription,
-                    resumePositionMs = resumePositionMs,
-                    resumeProgressFraction = null,
-                    manualSelection = false,
-                    startFromBeginning = false,
-                    isDownloadMode = true,
-                )
+                if ((type == "series" || parentMetaType == "series") && episodeNumber == null) {
+                    navController.navigate(
+                        SeriesDownloadRoute(
+                            metaId = parentMetaId.ifBlank { videoId },
+                            initialSeason = seasonNumber,
+                        )
+                    )
+                } else {
+                    launchPlaybackWithDownloadPreference(
+                        type = type,
+                        videoId = videoId,
+                        parentMetaId = parentMetaId,
+                        parentMetaType = parentMetaType,
+                        title = title,
+                        logo = logo,
+                        poster = poster,
+                        background = background,
+                        seasonNumber = seasonNumber,
+                        episodeNumber = episodeNumber,
+                        episodeTitle = episodeTitle,
+                        episodeThumbnail = episodeThumbnail,
+                        pauseDescription = pauseDescription,
+                        resumePositionMs = resumePositionMs,
+                        resumeProgressFraction = null,
+                        manualSelection = false,
+                        startFromBeginning = false,
+                        isDownloadMode = true,
+                    )
+                }
             }
 
         LaunchedEffect(Unit) {
@@ -1657,6 +1666,12 @@ internal fun MainAppContent(
                         route = route,
                         navController = navController,
                         onOpenDownload = ::openDownloadedItem,
+                    )
+                }
+                entry<SeriesDownloadRoute> { route ->
+                    SeriesDownloadDestination(
+                        route = route,
+                        navController = navController,
                     )
                 }
                 entry<AddonsSettingsRoute> { route ->
