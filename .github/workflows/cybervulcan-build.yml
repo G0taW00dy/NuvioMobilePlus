@@ -1,0 +1,137 @@
+name: Cybervulcan build & release
+
+# Builds a signed release APK of NuvioMobilePlus merged with the latest
+# official NuvioMobile, then publishes it as a GitHub release so the app's
+# built-in updater (pointed at this fork) offers it on the phone.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sync_official:
+        description: Merge the latest official Nuvio before building
+        type: boolean
+        default: true
+      force_build:
+        description: Build even if official Nuvio has no new commits
+        type: boolean
+        default: true
+  schedule:
+    # Saturdays 19:17 UTC = Sunday early morning in Adelaide
+    - cron: "17 19 * * 6"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cybervulcan-build
+  cancel-in-progress: false
+
+env:
+  OFFICIAL_REPO: https://github.com/NuvioMedia/NuvioMobile.git
+  OFFICIAL_BRANCH: cmp-rewrite
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Merge latest official Nuvio
+        id: sync
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          before=$(git rev-parse HEAD)
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.sync_official }}" = "true" ]; then
+            git remote add official "$OFFICIAL_REPO"
+            git fetch --no-tags official "$OFFICIAL_BRANCH"
+            if ! git merge --no-edit "official/$OFFICIAL_BRANCH"; then
+              echo "::error::Official Nuvio changes clash with the Plus/Cybervulcan changes. Ask Claude to resolve the merge."
+              git diff --name-only --diff-filter=U
+              exit 1
+            fi
+          fi
+          after=$(git rev-parse HEAD)
+          if [ "$before" != "$after" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decide whether to build
+        id: decide
+        run: |
+          if [ "${{ steps.sync.outputs.changed }}" = "true" ] || [ "${{ inputs.force_build }}" = "true" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No new official commits; skipping build."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Work out version
+        if: steps.decide.outputs.build == 'true'
+        id: ver
+        run: |
+          mv=$(grep -E '^MARKETING_VERSION=' iosApp/Configuration/Version.xcconfig | cut -d= -f2 | tr -d '[:space:]')
+          cpv=$(grep -E '^CURRENT_PROJECT_VERSION=' iosApp/Configuration/Version.xcconfig | cut -d= -f2 | tr -d '[:space:]')
+          # +3 continues the numbering from the builds made before this workflow file was renamed
+          n=$(( ${{ github.run_number }} + 3 ))
+          echo "name=${mv}-cybervulcan.${n}" >> "$GITHUB_OUTPUT"
+          echo "code=$(( cpv * 1000 + n % 1000 ))" >> "$GITHUB_OUTPUT"
+          echo "Building ${mv}-cybervulcan.${n}"
+
+      - name: Set up Java
+        if: steps.decide.outputs.build == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        if: steps.decide.outputs.build == 'true'
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Write build settings and signing key
+        if: steps.decide.outputs.build == 'true'
+        env:
+          LOCAL_PROPERTIES_BASE64: ${{ secrets.NUVIO_LOCAL_PROPERTIES_BASE64 }}
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.NUVIO_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$LOCAL_PROPERTIES_BASE64" ] || [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "::error::Add the NUVIO_LOCAL_PROPERTIES_BASE64 and NUVIO_RELEASE_KEYSTORE_BASE64 secrets first."
+            exit 1
+          fi
+          keystore="$RUNNER_TEMP/release.jks"
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          printf '%s' "$LOCAL_PROPERTIES_BASE64" | base64 --decode > local.properties
+          sed -i -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE)[[:space:]]*=/d' local.properties
+          printf '\nNUVIO_RELEASE_STORE_FILE=%s\n' "$keystore" >> local.properties
+
+      - name: Build release APKs
+        if: steps.decide.outputs.build == 'true'
+        run: >
+          ./gradlew :androidApp:assembleFullRelease
+          -Pnuvio.android.distribution=full
+          -Pnuvio.app.versionName="${{ steps.ver.outputs.name }}"
+          -Pnuvio.app.versionCode="${{ steps.ver.outputs.code }}"
+          --stacktrace
+
+      - name: Push merged code
+        if: steps.decide.outputs.build == 'true' && steps.sync.outputs.changed == 'true'
+        run: git push origin HEAD:${{ github.ref_name }}
+
+      - name: Publish release
+        if: steps.decide.outputs.build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v${{ steps.ver.outputs.name }}"
+          official=$(git log -1 --format='%h %s' "official/$OFFICIAL_BRANCH" 2>/dev/null || echo "not synced this run")
+          gh release create "$tag" androidApp/build/outputs/apk/full/release/*.apk \
+            --target "$(git rev-parse HEAD)" \
+            --title "Nuvio Plus (Cybervulcan) ${{ steps.ver.outputs.name }}" \
+            --notes "Unofficial personal build. NuvioMobilePlus downloads + Simkl AUTH V2 + connection-drop fixes, merged with official Nuvio ($official). Credits: Nuvio by NuvioMedia (tapframe and contributors), https://github.com/NuvioMedia/NuvioMobile. Download features by prneut, https://github.com/prneut/NuvioMobilePlus."

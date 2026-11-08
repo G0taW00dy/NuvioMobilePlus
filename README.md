@@ -8,9 +8,29 @@
     Bring your own sources. Nuvio turns them into a library with artwork, ratings, subtitles, and your place saved on every screen.
   </p>
 
-  [Website](https://nuvio.tv) · [GitHub releases](https://github.com/prneut/NuvioMobilePlus/releases/latest) · [Support Nuvio](https://nuvio.tv/support)
+  [Website](https://nuvio.tv) · [GitHub releases](https://github.com/G0taW00dy/NuvioMobilePlus/releases/latest) · [Support Nuvio](https://nuvio.tv/support)
 
 </div>
+
+## Cybervulcan's personal build
+
+> **Unofficial personal build.** Not made, endorsed or supported by the Nuvio team or by prneut. Please don't report problems with this build to them.
+
+### Credits
+
+This build exists thanks to:
+
+- **[Nuvio](https://github.com/NuvioMedia/NuvioMobile)** by NuvioMedia: tapframe and all Nuvio contributors, who created and maintain the app. If you enjoy Nuvio, please [support the Nuvio team](https://nuvio.tv/support).
+- **[Nuvio Mobile Plus](https://github.com/prneut/NuvioMobilePlus)** by **prneut**, who built the download features: batch season/episode downloads, the background download queue, the download size limit and more (details below).
+
+### What this build adds
+
+- Merges the latest official Nuvio automatically every week, so it stays current alongside the Plus download features.
+- **Simkl sign-in updated to Simkl's AUTH V2** (required for new Simkl apps), with automatic token renewal so it stays connected.
+- **Better handling of dropped connections** during playback (ExoPlayer): it keeps retrying for about two minutes, waits for the network to return, and resumes where it stopped instead of giving up.
+- In-app updates come from this repository's [releases](https://github.com/G0taW00dy/NuvioMobilePlus/releases).
+
+Licensed under the GNU GPL v3.0, like Nuvio. The full source for every release is in this repository.
 
 ## Nuvio Mobile Plus Fork
 

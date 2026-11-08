@@ -32,7 +32,7 @@ internal object ReleaseSelector {
         release: GitHubReleaseDto,
         version: SemanticVersion
     ): Boolean = release.prerelease ||
-        version.prerelease.isNotEmpty() ||
+        (version.prerelease.isNotEmpty() && version.prerelease.firstOrNull() != "cybervulcan") ||
         prereleaseNamePattern.containsMatchIn(release.name.orEmpty())
 
     private data class ReleaseCandidate(
