@@ -4,6 +4,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.cache.CacheWriter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,6 +29,9 @@ internal actual object NextEpisodePrefetcher {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
 
+    @Volatile
+    private var writer: CacheWriter? = null
+
     actual fun prefetch(url: String, headers: Map<String, String>, bytes: Long) {
         cancel()
         val context = PlayerSettingsStorage.applicationContext() ?: return
@@ -42,14 +46,18 @@ internal actual object NextEpisodePrefetcher {
                     useYoutubeChunkedPlayback = false,
                 )
                 if (useDiskCache) {
-                    VodCache.prefetch(
+                    val cached = VodCache.prefetchRange(
                         context = context,
                         upstream = upstream,
                         url = url,
                         sizeMode = settings.vodCacheSizeMode,
                         sizeMb = settings.vodCacheSizeMb,
-                        bytes = bytes,
+                        position = 0L,
+                        length = bytes,
+                        protect = true,
+                        onWriter = { writer = it },
                     )
+                    Log.i(TAG, "pre-buffered ${cached / (1024L * 1024L)}MB of next episode")
                 } else {
                     val dataSource = upstream.createDataSource()
                     try {
@@ -79,7 +87,8 @@ internal actual object NextEpisodePrefetcher {
     }
 
     actual fun cancel() {
-        VodCache.cancelPrefetch()
+        writer?.cancel()
+        writer = null
         job?.cancel()
         job = null
     }

@@ -325,6 +325,11 @@ private fun ExoPlayerSurface(
                     AutoSyncExtractorsFactory(factory, sourceUrl)
                 } else factory
             }
+            .let { factory -> // Jump-ahead buffering needs the video's index.
+                if (PlayerTuningRepository.current().skipBufferingSkippedSections) {
+                    SeekMapCapturingExtractorsFactory(factory)
+                } else factory
+            }
     }
     val dataSourceFactory = remember(
         context,
@@ -977,6 +982,34 @@ private fun ExoPlayerSurface(
         onDispose {
             if (VodCache.playheadBytesProvider === provider) {
                 VodCache.playheadBytesProvider = null
+            }
+        }
+    }
+
+    val jumpAheadEligible = playerSettings.vodCacheEnabled && !isLocalFileSource &&
+        !useYoutubeChunkedPlayback && !isLoopbackPlaybackSource(sourceUrl) &&
+        PlayerTuningRepository.current().skipBufferingSkippedSections
+    if (jumpAheadEligible) {
+        LaunchedEffect(exoPlayer, sourceUrl) {
+            val budgetMs = if (playerSettings.bufferEngineEnabled) playerSettings.maxBufferMs.toLong() else 50_000L
+            SkipJumpAhead.reset()
+            try {
+                while (true) {
+                    delay(2_000L)
+                    SkipJumpAhead.tick(
+                        scope = this,
+                        context = context,
+                        url = sourceUrl,
+                        headers = sanitizedSourceHeaders,
+                        positionMs = exoPlayer.currentPosition,
+                        bufferedPositionMs = exoPlayer.bufferedPosition,
+                        durationMs = exoPlayer.duration,
+                        budgetMs = budgetMs,
+                        settings = playerSettings,
+                    )
+                }
+            } finally {
+                SkipJumpAhead.reset()
             }
         }
     }

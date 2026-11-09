@@ -135,9 +135,9 @@ internal fun PlaybackSmartBufferingSettings(isTablet: Boolean, settings: PlayerS
             SettingsGroup(isTablet = isTablet) {
                 SettingsSwitchRow(
                     title = "Don't buffer auto-skipped sections",
-                    description = "ExoPlayer stops loading ahead at the start of an intro, recap, outro or " +
-                        "credits that auto-skip will jump over, so data goes to the part you watch " +
-                        "(and to the next episode). Needs auto-skip on. libmpv isn't affected.",
+                    description = "ExoPlayer stops loading at the start of an intro, recap, outro or credits " +
+                        "that auto-skip will jump over, and buffers the other side of it instead, so the " +
+                        "skipped part is never downloaded. Needs auto-skip on. libmpv isn't affected.",
                     checked = tuning.skipBufferingSkippedSections,
                     enabled = settings.skipIntroEnabled,
                     isTablet = isTablet,
@@ -146,8 +146,14 @@ internal fun PlaybackSmartBufferingSettings(isTablet: Boolean, settings: PlayerS
                     },
                 )
                 HintText(
-                    text = "After the jump, playback starts from a fresh buffer. On a very weak signal that " +
-                        "can mean a short wait right after an intro is skipped.",
+                    text = if (settings.vodCacheEnabled) {
+                        "Your max buffer is shared across the skip: time buffered before the section " +
+                            "counts, the rest (up to 5 min) is buffered after it, using the skip times and " +
+                            "the file's own index. Takes effect from the next video."
+                    } else {
+                        "Turn on the disk cache in ExoPlayer buffer and cache to buffer past the skip. " +
+                            "Without it, loading just stops at the section and restarts after the jump."
+                    },
                     isTablet = isTablet,
                 )
             }

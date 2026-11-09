@@ -53,8 +53,6 @@ internal object VodCache {
     // Cybervulcan: next-episode pre-buffer. Keys here are kept when the session cache is
     // cleared or trimmed, until that URL starts playing (or a newer pre-buffer replaces it).
     private val protectedKeys = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-    @Volatile
-    private var activeWriter: CacheWriter? = null
 
     fun wrap(
         context: Context,
@@ -86,18 +84,23 @@ internal object VodCache {
     }
 
     /**
-     * Writes the first [bytes] of [url] into the cache so the next player can start from disk.
-     * Blocks until done or cancelled; returns the bytes now cached from the start of the file.
+     * Writes [length] bytes of [url] from [position] into the cache, so a later read of that
+     * range comes from disk. Blocks until done; [onWriter] receives the writer so the caller
+     * can cancel it. [protect] keeps the key through session clears and trims until it plays
+     * (for the next episode). Returns the bytes now cached in the range.
      */
-    fun prefetch(
+    fun prefetchRange(
         context: Context,
         upstream: DataSource.Factory,
         url: String,
         sizeMode: VodCacheSizeMode,
         sizeMb: Int,
-        bytes: Long,
+        position: Long,
+        length: Long,
+        protect: Boolean,
+        onWriter: (CacheWriter) -> Unit,
     ): Long {
-        if (!shouldCache(url) || bytes <= 0L) return 0L
+        if (!shouldCache(url) || length <= 0L || position < 0L) return 0L
         val appContext = context.applicationContext
         val maxBytes = VodCacheSizing.resolveMaxBytes(
             mode = sizeMode,
@@ -106,30 +109,22 @@ internal object VodCache {
         )
         if (maxBytes <= 0L || disabledForSession) return 0L
         val cache = obtain(appContext, maxBytes) ?: return 0L
-        // Never let the pre-buffer take more than a quarter of the cache.
-        val length = bytes.coerceAtMost(maxBytes / 4L)
-        protectedKeys.clear()
-        protectedKeys.add(url)
+        // Never let a pre-fetch take more than a quarter of the cache.
+        val bounded = length.coerceAtMost(maxBytes / 4L)
+        if (protect) {
+            protectedKeys.clear()
+            protectedKeys.add(url)
+        }
         val dataSource = (cacheFactory(upstream, cache) as CacheDataSource.Factory).createDataSource()
         val spec = DataSpec.Builder()
             .setUri(Uri.parse(url))
-            .setPosition(0L)
-            .setLength(length)
+            .setPosition(position)
+            .setLength(bounded)
             .build()
         val writer = CacheWriter(dataSource, spec, null, null)
-        activeWriter = writer
-        try {
-            writer.cache()
-        } finally {
-            if (activeWriter === writer) activeWriter = null
-        }
-        val cached = runCatching { cache.getCachedLength(url, 0L, length) }.getOrDefault(0L)
-        Log.i(TAG, "pre-buffered ${cached / (1024L * 1024L)}MB of next episode")
-        return cached
-    }
-
-    fun cancelPrefetch() {
-        activeWriter?.cancel()
+        onWriter(writer)
+        writer.cache()
+        return runCatching { cache.getCachedLength(url, position, bounded) }.getOrDefault(0L)
     }
 
     fun evictCachedSession() {

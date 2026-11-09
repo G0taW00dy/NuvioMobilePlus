@@ -42,21 +42,20 @@ internal fun PlayerScreenRuntime.updateSmartBuffering() {
 
 private fun PlayerScreenRuntime.updateLoadCeiling(tuning: PlayerTuningSettings) {
     if (!tuning.skipBufferingSkippedSections || !playerSettingsUiState.skipIntroEnabled) {
-        PlaybackLoadCeiling.ceilingMs = null
+        PlaybackLoadCeiling.section = null
         return
     }
     val positionMs = playbackSnapshot.positionMs
-    val next = skipIntervals
+    PlaybackLoadCeiling.section = skipIntervals
         .filter { interval ->
             interval.shouldAutoSkip(playerSettingsUiState.autoSkipSegmentTypes) &&
                 interval !in autoSkippedIntervals
         }
-        .map { (it.startTime * 1000.0).toLong() }
+        .map { SkippedSection((it.startTime * 1000.0).toLong(), (it.endTime * 1000.0).toLong()) }
         // Close to (or past) the start, lift the limit: if the auto-skip doesn't happen for
         // any reason, playback must never sit waiting on data it isn't allowed to load.
-        .filter { startMs -> startMs - positionMs > CEILING_RELEASE_MARGIN_MS }
-        .minOrNull()
-    PlaybackLoadCeiling.ceilingMs = next
+        .filter { section -> section.startMs - positionMs > CEILING_RELEASE_MARGIN_MS && section.endMs > section.startMs }
+        .minByOrNull { it.startMs }
 }
 
 private fun PlayerScreenRuntime.maybeStartNextEpisodePrebuffer(tuning: PlayerTuningSettings) {
@@ -112,7 +111,7 @@ internal fun resetNextEpisodePrebuffer() {
     NextEpisodePrebufferState.job = null
     NextEpisodePrebufferState.startedForVideoId = null
     NextEpisodePrefetcher.cancel()
-    PlaybackLoadCeiling.ceilingMs = null
+    PlaybackLoadCeiling.section = null
 }
 
 internal fun prebufferBytes(stream: StreamItem, episodeDurationMs: Long, seconds: Int): Long {
