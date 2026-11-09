@@ -85,7 +85,15 @@ internal fun PlaybackMpvBufferSettings(isTablet: Boolean) {
 @Composable
 internal fun PlaybackSmartBufferingSettings(isTablet: Boolean, settings: PlayerSettingsUiState) {
     val tuning by PlayerTuningRepository.state.collectAsStateWithLifecycle()
+    // Both features store data in the ExoPlayer disk cache, so they're unavailable without it.
+    val diskCache = settings.vodCacheEnabled
     Column(verticalArrangement = Arrangement.spacedBy(if (isTablet) 18.dp else 12.dp)) {
+        if (!diskCache) {
+            HintText(
+                text = "Turn on the disk cache in ExoPlayer buffer and cache to use these options.",
+                isTablet = isTablet,
+            )
+        }
         SettingsSection(title = "Next episode", isTablet = isTablet) {
             SettingsGroup(isTablet = isTablet) {
                 SettingsSwitchRow(
@@ -93,12 +101,13 @@ internal fun PlaybackSmartBufferingSettings(isTablet: Boolean, settings: PlayerS
                     description = "Near the end of an episode, find the next episode's source (the one " +
                         "auto-play will use) and fetch its start in the background.",
                     checked = tuning.prebufferNextEpisode,
+                    enabled = diskCache,
                     isTablet = isTablet,
                     onCheckedChange = { enabled ->
                         PlayerTuningRepository.update { it.copy(prebufferNextEpisode = enabled) }
                     },
                 )
-                if (tuning.prebufferNextEpisode) {
+                if (diskCache && tuning.prebufferNextEpisode) {
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSliderRow(
                         title = "Start when this episode reaches",
@@ -119,13 +128,8 @@ internal fun PlaybackSmartBufferingSettings(isTablet: Boolean, settings: PlayerS
                         onValueChange = { value -> PlayerTuningRepository.update { it.copy(prebufferSeconds = value) } },
                     )
                     HintText(
-                        text = if (settings.vodCacheEnabled) {
-                            "ExoPlayer: saved to the disk cache, so the next episode starts from storage. " +
-                                "libmpv: the link is prepared in advance (it has no disk cache)."
-                        } else {
-                            "Turn on the disk cache in ExoPlayer buffer and cache to store the pre-buffer. " +
-                                "Without it, the next link is only prepared in advance."
-                        },
+                        text = "ExoPlayer: saved to the disk cache, so the next episode starts from storage. " +
+                            "libmpv: the link is prepared in advance (it has no disk cache).",
                         isTablet = isTablet,
                     )
                 }
@@ -139,21 +143,16 @@ internal fun PlaybackSmartBufferingSettings(isTablet: Boolean, settings: PlayerS
                         "that auto-skip will jump over, and buffers the other side of it instead, so the " +
                         "skipped part is never downloaded. Needs auto-skip on. libmpv isn't affected.",
                     checked = tuning.skipBufferingSkippedSections,
-                    enabled = settings.skipIntroEnabled,
+                    enabled = diskCache && settings.skipIntroEnabled,
                     isTablet = isTablet,
                     onCheckedChange = { enabled ->
                         PlayerTuningRepository.update { it.copy(skipBufferingSkippedSections = enabled) }
                     },
                 )
                 HintText(
-                    text = if (settings.vodCacheEnabled) {
-                        "Your max buffer is shared across the skip: time buffered before the section " +
-                            "counts, the rest (up to 5 min) is buffered after it, using the skip times and " +
-                            "the file's own index. Takes effect from the next video."
-                    } else {
-                        "Turn on the disk cache in ExoPlayer buffer and cache to buffer past the skip. " +
-                            "Without it, loading just stops at the section and restarts after the jump."
-                    },
+                    text = "Your max buffer is shared across the skip: time buffered before the section " +
+                        "counts, the rest (up to 5 min) is buffered after it, using the skip times and " +
+                        "the file's own index. Takes effect from the next video.",
                     isTablet = isTablet,
                 )
             }

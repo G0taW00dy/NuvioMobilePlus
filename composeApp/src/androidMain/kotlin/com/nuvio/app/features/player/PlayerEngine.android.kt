@@ -326,7 +326,7 @@ private fun ExoPlayerSurface(
                 } else factory
             }
             .let { factory -> // Jump-ahead buffering needs the video's index.
-                if (PlayerTuningRepository.current().skipBufferingSkippedSections) {
+                if (playerSettings.vodCacheEnabled && PlayerTuningRepository.current().skipBufferingSkippedSections) {
                     SeekMapCapturingExtractorsFactory(factory)
                 } else factory
             }

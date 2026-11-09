@@ -41,7 +41,9 @@ internal fun PlayerScreenRuntime.updateSmartBuffering() {
 }
 
 private fun PlayerScreenRuntime.updateLoadCeiling(tuning: PlayerTuningSettings) {
-    if (!tuning.skipBufferingSkippedSections || !playerSettingsUiState.skipIntroEnabled) {
+    if (!tuning.skipBufferingSkippedSections || !playerSettingsUiState.skipIntroEnabled ||
+        !playerSettingsUiState.vodCacheEnabled
+    ) {
         PlaybackLoadCeiling.section = null
         return
     }
@@ -59,7 +61,7 @@ private fun PlayerScreenRuntime.updateLoadCeiling(tuning: PlayerTuningSettings) 
 }
 
 private fun PlayerScreenRuntime.maybeStartNextEpisodePrebuffer(tuning: PlayerTuningSettings) {
-    if (!tuning.prebufferNextEpisode) return
+    if (!tuning.prebufferNextEpisode || !playerSettingsUiState.vodCacheEnabled) return
     val nextEp = nextEpisodeInfo ?: return
     if (!nextEp.hasAired) return
     if (NextEpisodePrebufferState.startedForVideoId == nextEp.videoId) return
