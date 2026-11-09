@@ -455,6 +455,7 @@ internal fun PlayerScreenRuntime.BindPlayerRuntimeEffects() {
             playerController?.clearNowPlayingInfo()
             P2pStreamingEngine.shutdown()
             cancelNextEpisodePreload()
+            resetNextEpisodePrebuffer()
             PlayerStreamsRepository.clearAll()
         }
     }
@@ -685,6 +686,7 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
         lastManualSkipSeekPositions,
     ) {
         recomputeChapterSkipIntervalsIfNeeded()
+        updateSmartBuffering()
         if (skipIntervals.isEmpty()) {
             activeSkipInterval = null
             return@LaunchedEffect

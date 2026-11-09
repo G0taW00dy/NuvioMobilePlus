@@ -148,6 +148,7 @@ actual fun PlatformPlayerSurface(
         mutableStateOf(requestedEngine.initialAndroidEngine())
     }
 
+    NextEpisodePrefetcher.lastEngineWasLibmpv = activeEngine == ResolvedAndroidPlaybackEngine.Libmpv
     when (activeEngine) {
         ResolvedAndroidPlaybackEngine.ExoPlayer -> ExoPlayerSurface(
             sourceUrl = sourceUrl,
@@ -515,7 +516,7 @@ private fun ExoPlayerSurface(
         val playerBuilder = ExoPlayer.Builder(context)
             .setAudioAttributes(playbackAudioAttributes, false)
             .setTrackSelector(trackSelector)
-            .setLoadControl(loadControl)
+            .setLoadControl(SkipAwareLoadControl(loadControl))
 
         val player = if (useLibass) {
             // Set render scale before building the player
@@ -619,7 +620,7 @@ private fun ExoPlayerSurface(
             // Connection dropped: wait (up to ~2 min) for the network to come back before reopening.
             delay(stallSession.reopenAttempts * 1_000L)
             var waitedMs = 0L
-            while (isNetworkOffline() && waitedMs < 120_000L) {
+            while (isNetworkOffline() && waitedMs < PlayerTuningRepository.current().networkRetryWindowSec * 1_000L) {
                 delay(1_000L)
                 waitedMs += 1_000L
             }
@@ -1725,8 +1726,7 @@ private class NuvioLibmpvView(
         mpv.setOptionString("msg-level", "all=warn")
         mpv.setOptionString("tls-verify", "yes")
         mpv.setOptionString("tls-ca-file", "${context.filesDir.path}/cacert.pem")
-        mpv.setOptionString("demuxer-max-bytes", "${libmpvCacheBytes()}").logIfMpvError("demuxer-max-bytes")
-        mpv.setOptionString("demuxer-max-back-bytes", "${libmpvCacheBytes()}").logIfMpvError("demuxer-max-back-bytes")
+        applyLibmpvBufferOptions(mpv, PlayerTuningRepository.current())
         // Room above 100% for the player's amplification (+10 dB is about 316%).
         mpv.setOptionString("volume-max", "$LIBMPV_MAX_VOLUME_PERCENT").logIfMpvError("volume-max")
         mpv.setOptionString("vd-lavc-film-grain", "cpu")
@@ -2200,9 +2200,6 @@ private data class LibmpvTrack(
 )
 
 private const val LIBMPV_MAX_VOLUME_PERCENT = 400
-
-private fun libmpvCacheBytes(): Int =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) 64 * 1024 * 1024 else 32 * 1024 * 1024
 
 private fun Int.logIfMpvError(option: String) {
     if (this < 0) Log.w(TAG, "libmpv option failed: $option status=$this")

@@ -7,11 +7,13 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSink
 import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.CacheDataSink
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheEvictor
 import androidx.media3.datasource.cache.CacheSpan
+import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import kotlinx.coroutines.CoroutineScope
@@ -48,6 +50,12 @@ internal object VodCache {
     private val bytesReadFromCache = AtomicLong(0L)
     private val writeCounters = VodCacheWriteSink.Counters()
 
+    // Cybervulcan: next-episode pre-buffer. Keys here are kept when the session cache is
+    // cleared or trimmed, until that URL starts playing (or a newer pre-buffer replaces it).
+    private val protectedKeys = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    @Volatile
+    private var activeWriter: CacheWriter? = null
+
     fun wrap(
         context: Context,
         upstream: DataSource.Factory,
@@ -57,6 +65,7 @@ internal object VodCache {
         sizeMb: Int,
     ): DataSource.Factory {
         if (!enabled || !shouldCache(url)) return upstream
+        protectedKeys.remove(url)
         pendingEviction?.cancel()
         pendingEviction = null
         evictor?.resetTrimAnchor()
@@ -74,6 +83,53 @@ internal object VodCache {
         Log.i(TAG, "active capMb=${maxBytes / (1024L * 1024L)} mode=$sizeMode")
         val cached = cacheFactory(upstream, cache)
         return DataSource.Factory { BufferedReadDataSource(cached.createDataSource()) }
+    }
+
+    /**
+     * Writes the first [bytes] of [url] into the cache so the next player can start from disk.
+     * Blocks until done or cancelled; returns the bytes now cached from the start of the file.
+     */
+    fun prefetch(
+        context: Context,
+        upstream: DataSource.Factory,
+        url: String,
+        sizeMode: VodCacheSizeMode,
+        sizeMb: Int,
+        bytes: Long,
+    ): Long {
+        if (!shouldCache(url) || bytes <= 0L) return 0L
+        val appContext = context.applicationContext
+        val maxBytes = VodCacheSizing.resolveMaxBytes(
+            mode = sizeMode,
+            manualSizeMb = sizeMb,
+            reclaimableBytes = appContext.cacheDir.usableSpace.coerceAtLeast(0L) + currentSpaceBytes(),
+        )
+        if (maxBytes <= 0L || disabledForSession) return 0L
+        val cache = obtain(appContext, maxBytes) ?: return 0L
+        // Never let the pre-buffer take more than a quarter of the cache.
+        val length = bytes.coerceAtMost(maxBytes / 4L)
+        protectedKeys.clear()
+        protectedKeys.add(url)
+        val dataSource = (cacheFactory(upstream, cache) as CacheDataSource.Factory).createDataSource()
+        val spec = DataSpec.Builder()
+            .setUri(Uri.parse(url))
+            .setPosition(0L)
+            .setLength(length)
+            .build()
+        val writer = CacheWriter(dataSource, spec, null, null)
+        activeWriter = writer
+        try {
+            writer.cache()
+        } finally {
+            if (activeWriter === writer) activeWriter = null
+        }
+        val cached = runCatching { cache.getCachedLength(url, 0L, length) }.getOrDefault(0L)
+        Log.i(TAG, "pre-buffered ${cached / (1024L * 1024L)}MB of next episode")
+        return cached
+    }
+
+    fun cancelPrefetch() {
+        activeWriter?.cancel()
     }
 
     fun evictCachedSession() {
@@ -206,6 +262,7 @@ internal object VodCache {
             return
         }
         for (key in keys) {
+            if (key in protectedKeys) continue
             val spans = try {
                 cache.getCachedSpans(key)
             } catch (_: Exception) {
@@ -257,6 +314,7 @@ internal object VodCache {
             delegate.onSpanTouched(cache, oldSpan, newSpan)
 
         private fun trimBehindPlayhead(cache: Cache, key: String) {
+            if (key in protectedKeys) return
             val playhead = runCatching { playheadBytesProvider?.invoke() }.getOrNull() ?: return
             if (playhead <= 0L) return
             val cutoff = playhead - RETAIN_BEHIND_BYTES

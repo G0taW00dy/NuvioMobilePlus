@@ -14,11 +14,14 @@ import java.net.UnknownHostException
 /**
  * Keeps retrying a stream while the connection drops out (patchy mobile signal) instead of
  * giving up after ExoPlayer's default handful of quick retries. Retries back off up to 5 s and
- * last roughly two minutes in total, so a short signal loss plays on from the buffer and then
- * resumes. Dead links (403/404/410 etc.) still fail straight away via the default policy.
+ * last for the "keep retrying for" window (Settings → Playback, default two minutes), so a
+ * signal loss plays on from the buffer and then resumes. Dead links (403/404/410 etc.) still
+ * fail straight away via the default policy.
  */
 @UnstableApi
-internal class PatientLoadErrorHandlingPolicy : DefaultLoadErrorHandlingPolicy(NETWORK_RETRY_COUNT) {
+internal class PatientLoadErrorHandlingPolicy(
+    private val networkRetryCount: Int = retryCountForWindow(PlayerTuningRepository.current().networkRetryWindowSec),
+) : DefaultLoadErrorHandlingPolicy(networkRetryCount) {
 
     override fun getRetryDelayMsFor(loadErrorInfo: LoadErrorHandlingPolicy.LoadErrorInfo): Long {
         val error = loadErrorInfo.exception
@@ -27,7 +30,7 @@ internal class PatientLoadErrorHandlingPolicy : DefaultLoadErrorHandlingPolicy(N
         return (attempt * 1_000L).coerceAtMost(MAX_RETRY_DELAY_MS)
     }
 
-    override fun getMinimumLoadableRetryCount(dataType: Int): Int = NETWORK_RETRY_COUNT
+    override fun getMinimumLoadableRetryCount(dataType: Int): Int = networkRetryCount
 
     private fun IOException.isConnectivityFailure(): Boolean {
         if (this is HttpDataSource.InvalidResponseCodeException) return false
@@ -42,8 +45,13 @@ internal class PatientLoadErrorHandlingPolicy : DefaultLoadErrorHandlingPolicy(N
         }
     }
 
-    private companion object {
-        const val NETWORK_RETRY_COUNT = 30
-        const val MAX_RETRY_DELAY_MS = 5_000L
+    companion object {
+        private const val MAX_RETRY_DELAY_MS = 5_000L
+
+        /** Delays run 1, 2, 3, 4, 5 s, then 5 s each: 15 s for the first five tries. */
+        fun retryCountForWindow(windowSec: Int): Int {
+            val window = windowSec.coerceAtLeast(15)
+            return (5 + (window - 15) / 5).coerceIn(5, 200)
+        }
     }
 }

@@ -2552,8 +2552,12 @@
     <string name="settings_playback_page_subtitles_description">Languages, style, and rendering</string>
     <string name="settings_playback_page_video">Video</string>
     <string name="settings_playback_page_video_description">Decoding, video output, and HDR</string>
-    <string name="settings_playback_page_buffer">Buffer and cache</string>
-    <string name="settings_playback_page_buffer_description">Memory, buffering, and disk cache</string>
+    <string name="settings_playback_page_buffer">ExoPlayer buffer and cache</string>
+    <string name="settings_playback_page_buffer_description">ExoPlayer memory, buffering, and disk cache</string>
+    <string name="settings_playback_page_mpv_buffer">libmpv buffer</string>
+    <string name="settings_playback_page_mpv_buffer_description">libmpv read-ahead, cache size, and resume after a stall</string>
+    <string name="settings_playback_page_smart_buffering">Smart buffering</string>
+    <string name="settings_playback_page_smart_buffering_description">Pre-buffer the next episode, skip-aware loading, connection drops</string>
     <string name="settings_playback_page_p2p">P2P streaming</string>
     <string name="settings_playback_page_p2p_description">Torrent playback, profile, and cache</string>
     <string name="settings_appearance_description">Themes, app icon, and language</string>

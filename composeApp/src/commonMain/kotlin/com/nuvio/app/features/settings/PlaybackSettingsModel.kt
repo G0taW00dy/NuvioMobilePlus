@@ -17,6 +17,8 @@ internal enum class PlaybackSection(
     Subtitles(SettingsPage.PlaybackSubtitles, Res.string.settings_playback_page_subtitles_description),
     Video(SettingsPage.PlaybackVideo, Res.string.settings_playback_page_video_description),
     Buffer(SettingsPage.PlaybackBuffer, Res.string.settings_playback_page_buffer_description),
+    MpvBuffer(SettingsPage.PlaybackMpvBuffer, Res.string.settings_playback_page_mpv_buffer_description),
+    SmartBuffering(SettingsPage.PlaybackSmartBuffering, Res.string.settings_playback_page_smart_buffering_description),
     P2p(SettingsPage.PlaybackP2p, Res.string.settings_playback_page_p2p_description),
 }
 
@@ -27,6 +29,8 @@ internal fun visiblePlaybackSections(
 ): List<PlaybackSection> = PlaybackSection.entries.filter { section ->
     when (section) {
         PlaybackSection.Buffer -> !ios && engine != AndroidPlaybackEngine.Libmpv
+        PlaybackSection.MpvBuffer -> !ios && engine != AndroidPlaybackEngine.ExoPlayer
+        PlaybackSection.SmartBuffering -> !ios
         PlaybackSection.P2p -> p2pVisible
         else -> true
     }

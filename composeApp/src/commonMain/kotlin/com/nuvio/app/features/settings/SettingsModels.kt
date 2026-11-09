@@ -131,6 +131,16 @@ internal enum class SettingsPage(
         category = SettingsCategory.Watch,
         parentPage = Playback,
     ),
+    PlaybackMpvBuffer(
+        titleRes = Res.string.settings_playback_page_mpv_buffer,
+        category = SettingsCategory.Watch,
+        parentPage = Playback,
+    ),
+    PlaybackSmartBuffering(
+        titleRes = Res.string.settings_playback_page_smart_buffering,
+        category = SettingsCategory.Watch,
+        parentPage = Playback,
+    ),
     PlaybackP2p(
         titleRes = Res.string.settings_playback_page_p2p,
         category = SettingsCategory.Watch,
@@ -276,5 +286,7 @@ internal val SettingsPage.icon: ImageVector
         SettingsPage.PlaybackSubtitles -> Icons.Default.Subtitles
         SettingsPage.PlaybackVideo -> Icons.Default.VideoSettings
         SettingsPage.PlaybackBuffer -> Icons.Default.NetworkCheck
+        SettingsPage.PlaybackMpvBuffer -> Icons.Default.NetworkCheck
+        SettingsPage.PlaybackSmartBuffering -> Icons.Default.QueuePlayNext
         SettingsPage.PlaybackP2p -> Icons.Default.Hub
     }

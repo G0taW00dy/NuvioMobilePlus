@@ -115,6 +115,8 @@ private fun SettingsPage.isEnabledByPolicy(): Boolean =
         SettingsPage.SupportersContributors -> AppFeaturePolicy.supportersContributorsPageEnabled
         SettingsPage.PlaybackP2p -> P2pSettingsRepository.isVisible
         SettingsPage.PlaybackBuffer -> !isIos
+        SettingsPage.PlaybackMpvBuffer -> !isIos
+        SettingsPage.PlaybackSmartBuffering -> !isIos
         else -> true
     }
 
@@ -662,6 +664,8 @@ private fun MobileSettingsScreen(
                 SettingsPage.PlaybackSubtitles,
                 SettingsPage.PlaybackVideo,
                 SettingsPage.PlaybackBuffer,
+                SettingsPage.PlaybackMpvBuffer,
+                SettingsPage.PlaybackSmartBuffering,
                 SettingsPage.PlaybackP2p -> playbackSettingsContent(
                     isTablet = false,
                     page = page,
@@ -1063,6 +1067,8 @@ private fun TabletSettingsScreen(
                     SettingsPage.PlaybackSubtitles,
                     SettingsPage.PlaybackVideo,
                     SettingsPage.PlaybackBuffer,
+                    SettingsPage.PlaybackMpvBuffer,
+                    SettingsPage.PlaybackSmartBuffering,
                     SettingsPage.PlaybackP2p -> playbackSettingsContent(
                         isTablet = true,
                         page = page,
