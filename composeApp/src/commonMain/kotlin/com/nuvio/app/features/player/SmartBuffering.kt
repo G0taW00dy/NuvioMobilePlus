@@ -34,6 +34,9 @@ private object NextEpisodePrebufferState {
     var job: Job? = null
 }
 
+/** Sections the playhead approached from well before: only those hold loading back. */
+private val armedSections = mutableSetOf<SkippedSection>()
+
 internal fun PlayerScreenRuntime.updateSmartBuffering() {
     val tuning = PlayerTuningRepository.current()
     updateLoadCeiling(tuning)
@@ -48,15 +51,20 @@ private fun PlayerScreenRuntime.updateLoadCeiling(tuning: PlayerTuningSettings) 
         return
     }
     val positionMs = playbackSnapshot.positionMs
-    PlaybackLoadCeiling.section = skipIntervals
+    val upcoming = skipIntervals
         .filter { interval ->
             interval.shouldAutoSkip(playerSettingsUiState.autoSkipSegmentTypes) &&
                 interval !in autoSkippedIntervals
         }
         .map { SkippedSection((it.startTime * 1000.0).toLong(), (it.endTime * 1000.0).toLong()) }
-        // Close to (or past) the start, lift the limit: if the auto-skip doesn't happen for
-        // any reason, playback must never sit waiting on data it isn't allowed to load.
-        .filter { section -> section.startMs - positionMs > CEILING_RELEASE_MARGIN_MS && section.endMs > section.startMs }
+        .filter { section -> section.endMs > section.startMs && section.endMs > positionMs }
+    armedSections.retainAll(upcoming.toSet())
+    // Arm a section only when it's still well ahead, so there is plenty buffered before it and
+    // playback is running when it gets there. Starting or seeking right next to a section just
+    // loads it normally. Once armed, loading holds at the section until the skip happens.
+    upcoming.filterTo(armedSections) { section -> section.startMs - positionMs >= ARM_LEAD_MS }
+    PlaybackLoadCeiling.section = upcoming
+        .filter { it in armedSections && it != PlaybackLoadCeiling.released }
         .minByOrNull { it.startMs }
 }
 
@@ -114,6 +122,8 @@ internal fun resetNextEpisodePrebuffer() {
     NextEpisodePrebufferState.startedForVideoId = null
     NextEpisodePrefetcher.cancel()
     PlaybackLoadCeiling.section = null
+    PlaybackLoadCeiling.released = null
+    armedSections.clear()
 }
 
 internal fun prebufferBytes(stream: StreamItem, episodeDurationMs: Long, seconds: Int): Long {
@@ -180,7 +190,7 @@ internal fun nextEpisodeAutoPlayCandidate(
     )
 }
 
-private const val CEILING_RELEASE_MARGIN_MS = 4_000L
+private const val ARM_LEAD_MS = 15_000L
 private const val STREAM_WAIT_MS = 90_000L
 private const val FALLBACK_BYTES_PER_SECOND = 1_500_000L // ~12 Mbit/s
 private const val MIN_PREBUFFER_BYTES = 4L * 1024L * 1024L

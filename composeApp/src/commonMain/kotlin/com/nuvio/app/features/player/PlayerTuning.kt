@@ -121,13 +121,23 @@ internal object PlayerTuningRepository {
 internal data class SkippedSection(val startMs: Long, val endMs: Long)
 
 /**
- * The next section auto-skip will jump over. ExoPlayer stops loading at its start, and the
- * jump-ahead buffer fills from its end. Null means no limit. Set by the player screen, read by
- * the Android player.
+ * The next section auto-skip will jump over. ExoPlayer stops loading just past its start and
+ * holds there until the skip; the jump-ahead buffer fills from its end. Null means no limit.
+ * Set by the player screen, read by the Android player.
  */
 internal object PlaybackLoadCeiling {
+    /**
+     * Load a little into the section, so playback is still running when it crosses the start:
+     * auto-skip only fires while playing.
+     */
+    private const val OVERRUN_MS = 2_000L
+
     @kotlin.concurrent.Volatile
     var section: SkippedSection? = null
 
-    val ceilingMs: Long? get() = section?.startMs
+    /** Set by the player when it gave up waiting for the skip; that section is loaded normally. */
+    @kotlin.concurrent.Volatile
+    var released: SkippedSection? = null
+
+    val ceilingMs: Long? get() = section?.takeIf { it != released }?.let { it.startMs + OVERRUN_MS }
 }

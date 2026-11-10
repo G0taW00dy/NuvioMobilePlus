@@ -1,5 +1,7 @@
 package com.nuvio.app.features.player
 
+import android.os.SystemClock
+import androidx.media3.common.C
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.LoadControl
@@ -10,22 +12,40 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection
 import androidx.media3.exoplayer.upstream.Allocator
 
 /**
- * Cybervulcan build: wraps the normal load control and stops loading ahead once the buffer
- * reaches the start of a section that will be auto-skipped (see [PlaybackLoadCeiling]).
- * Everything else is passed straight through.
+ * Cybervulcan build: wraps the normal load control and holds loading at the start of a section
+ * that will be auto-skipped (see [PlaybackLoadCeiling]) until the skip happens. If playback is
+ * stuck there for a few seconds without the skip, loading continues. Everything else is passed
+ * straight through.
  */
 @UnstableApi
 internal class SkipAwareLoadControl(private val delegate: LoadControl) : LoadControl {
 
+    private var lastPositionUs = C.TIME_UNSET
+    private var positionUnchangedSinceMs = 0L
+
     override fun shouldContinueLoading(parameters: LoadControl.Parameters): Boolean {
+        val section = PlaybackLoadCeiling.section
         val ceilingMs = PlaybackLoadCeiling.ceilingMs
-        if (ceilingMs != null && ceilingMs > 0L && !parameters.rebuffering &&
-            parameters.bufferedDurationUs >= MIN_KEEP_BUFFERED_US
-        ) {
+        if (section != null && ceilingMs != null) {
             val bufferedEndUs = parameters.playbackPositionUs + parameters.bufferedDurationUs
-            if (bufferedEndUs >= ceilingMs * 1_000L) return false
+            if (bufferedEndUs >= ceilingMs * 1_000L) {
+                if (!skipOverdue(parameters)) return false
+                // Playback should be running but hasn't moved: the skip isn't coming, so load
+                // the section rather than leave playback stuck.
+                PlaybackLoadCeiling.released = section
+            }
         }
         return delegate.shouldContinueLoading(parameters)
+    }
+
+    private fun skipOverdue(parameters: LoadControl.Parameters): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (!parameters.playWhenReady || parameters.playbackPositionUs != lastPositionUs) {
+            lastPositionUs = parameters.playbackPositionUs
+            positionUnchangedSinceMs = now
+            return false
+        }
+        return now - positionUnchangedSinceMs > STALL_RELEASE_MS
     }
 
     override fun onPrepared(playerId: PlayerId) = delegate.onPrepared(playerId)
@@ -58,7 +78,6 @@ internal class SkipAwareLoadControl(private val delegate: LoadControl) : LoadCon
         delegate.shouldStartPlayback(parameters)
 
     private companion object {
-        // Never hold back below this much buffered media, so playback can't starve.
-        const val MIN_KEEP_BUFFERED_US = 2_000_000L
+        const val STALL_RELEASE_MS = 3_000L
     }
 }
