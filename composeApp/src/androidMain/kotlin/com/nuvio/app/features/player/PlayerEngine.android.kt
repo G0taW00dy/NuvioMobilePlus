@@ -373,7 +373,8 @@ private fun ExoPlayerSurface(
                 loopback = loopbackSource,
             )
         ) {
-            upstream
+            // upstream ends in a DefaultDataSource, which opens the data: init segment this may add.
+            if (mimeType == MimeTypes.APPLICATION_M3U8) HlsParameterSetInitDataSource.Factory(upstream) else upstream
         } else {
             VodCache.wrap(
                 context = context,
@@ -728,7 +729,7 @@ private fun ExoPlayerSurface(
                 latestOnError.value(null)
                 return
             }
-            latestOnError.value(error.localizedMessage ?: runBlocking { getString(Res.string.player_unable_to_play_stream) })
+            latestOnError.value(runBlocking { error.toDisplayMessage() })
         }
 
         val listener = object : Player.Listener {
@@ -1034,9 +1035,17 @@ private fun ExoPlayerSurface(
                     exoPlayer.play()
                 }
 
-                // Media3's Matroska extractor skips chapters; read them from the file, if allowed.
+                // Media3's Matroska extractor skips chapters, so they are read from the file, as in
+                // NuvioTV: when the chapter UI or skip intro needs them, and only for Matroska/WebM,
+                // which spares MP4 and HLS the extra request.
                 override suspend fun getChapters(): List<PlayerChapter> {
-                    if (!PlayerSettingsRepository.uiState.value.androidExoChaptersEnabled) return emptyList()
+                    val settings = PlayerSettingsRepository.uiState.value
+                    val read = shouldReadExoChapters(
+                        chaptersEnabled = settings.androidExoChaptersEnabled,
+                        skipIntroEnabled = settings.skipIntroEnabled,
+                        containerMimeType = exoPlayer.videoFormat?.containerMimeType,
+                    )
+                    if (!read) return emptyList()
                     return MatroskaChapterLoader.load(latestChapterSourceUrl.value, latestChapterSourceHeaders.value)
                 }
 
@@ -1461,6 +1470,7 @@ private fun LibmpvPlayerSurface(
                 }
             }
         }
+        val errorLog = MpvErrorLog()
         val observer = object : MPV.EventObserver {
             override fun eventProperty(property: String) {
                 if (property == "sub-text" || property == "sid") view.updateStyledSubtitle()
@@ -1505,6 +1515,7 @@ private fun LibmpvPlayerSurface(
             override fun event(eventId: Int, data: MPVNode) {
                 when (eventId) {
                     MPV.mpvEvent.MPV_EVENT_START_FILE -> {
+                        errorLog.clear()
                         Log.i(
                             PLAYER_DIAGNOSTIC_TAG,
                             "mpv_event=START_FILE attempt=${playbackDiagnostics.attempt} " +
@@ -1558,8 +1569,26 @@ private fun LibmpvPlayerSurface(
                                     "mpv_error attempt=${playbackDiagnostics.attempt} " +
                                         "fileError=${diagnosticPlayerMessage(fileError)}",
                                 )
+                                val logLine = errorLog.logLine()
+                                val httpCode = mpvHttpStatusCode(logLine)
+                                val codecContext = if (httpCode == null) {
+                                    runCatching { mpvCodecContextLine(view.mpv, logLine.orEmpty()) }.getOrNull()
+                                } else {
+                                    null
+                                }
                                 latestOnError.value(
-                                    getString(Res.string.player_unable_to_play_stream),
+                                    mpvErrorMessage(
+                                        fileError = fileError,
+                                        logLine = logLine,
+                                        codecContext = codecContext,
+                                        fallback = getString(Res.string.player_unable_to_play_stream),
+                                        httpExplanation = httpCode?.let { httpStatusExplanationText(it) }.orEmpty(),
+                                        statusExplanation = if (httpCode == null) {
+                                            mpvNonHttpExplanationText(fileError, logLine)
+                                        } else {
+                                            ""
+                                        },
+                                    ),
                                 )
                             }
                         }
@@ -1574,6 +1603,7 @@ private fun LibmpvPlayerSurface(
                     "mpv_log level=$level prefix=${diagnosticPlayerMessage(prefix)} " +
                         "message=${diagnosticPlayerMessage(text)}",
                 )
+                errorLog.onLog(prefix, level, text)
             }
         }
         view.mpv.addObserver(observer)
@@ -1757,6 +1787,8 @@ private class NuvioLibmpvView(
             mpv.setOptionString("vf", "format=yuv420p")
         }
         mpv.setOptionString("msg-level", "all=warn")
+        // Android has no youtube-dl, so mpv's fallback to it can only fail and bury the real error.
+        mpv.setOptionString("ytdl", "no").logIfMpvError("ytdl")
         mpv.setOptionString("tls-verify", "yes")
         mpv.setOptionString("tls-ca-file", "${context.filesDir.path}/cacert.pem")
         applyLibmpvBufferOptions(mpv, PlayerTuningRepository.current())
@@ -1904,7 +1936,16 @@ private class NuvioLibmpvView(
         val seeking = mpv.getPropertyBoolean("seeking") ?: false
         val cacheBufferingState = mpv.getPropertyInt("cache-buffering-state")
         val durationMs = mpv.getPropertyDouble("duration").toMillis()
-        val positionMs = mpv.getPropertyDouble("time-pos").toMillis()
+        val positionMs = mpv.getPropertyDouble("time-pos")
+            ?.let { timePos ->
+                mpvPlaybackPositionSec(
+                    timePosSec = timePos,
+                    audioPtsSec = mpv.getPropertyDouble("audio-pts"),
+                    seeking = seeking,
+                    audioDelaySec = mpv.getPropertyDouble("audio-delay") ?: 0.0,
+                )
+            }
+            .toMillis()
         val cachePositionMs = mpv.getPropertyDouble("demuxer-cache-time").toMillis()
         val isCacheBuffering = cacheBufferingState != null && cacheBufferingState in 0 until 100
         val isLoading = pausedForCache ||
